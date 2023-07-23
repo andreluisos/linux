@@ -19,6 +19,9 @@ sed -i 's/# export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/export PATH=$HOME\/bi
 export PATH=$HOME/bin:/usr/local/bin:$PATH
 zsh
 
+rpm-ostree override remove firefox firefox-langpacks 115.0.2-3.fc38 gnome-terminal-nautilus gnome-terminal
+rpm-ostree install gnome-boxes gnome-console langpacks-en langpacks-pt ibvirt-daemon-config-network zsh
+
 flatpak install flathub org.freedesktop.Platform.ffmpeg-full -y
 flatpak install flathub com.bitwarden.desktop -y
 flatpak install flathub com.raggesilver.BlackBox -y
