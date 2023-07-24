@@ -1,11 +1,14 @@
 #!/bin/bash
 # Need improvements.
 
-rpm-ostree install gnome-boxes gnome-console langpacks-pt ibvirt-daemon-config-network zsh
-rpm-ostree override remove firefox firefox-langpacks gnome-terminal-nautilus gnome-terminal
 
+rpm-ostree install distrobox gnome-boxes gnome-console langpacks-en langpacks-pt libvirt-daemon-config-network zsh
+#### RESTART ####
+
+rpm-ostree override remove firefox firefox-langpacks gnome-terminal-nautilus gnome-terminal
 sudo usermod -aG libvirt $USER
 sudo systemctl enable --now libvirtd virtnetworkd-ro.socket
+#### RESTART ####
 
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
@@ -23,9 +26,14 @@ flatpak install flathub com.bitwarden.desktop -y
 flatpak install flathub com.visualstudio.code -y
 flatpak install flathub fr.handbrake.ghb -y
 flatpak install flathub org.mozilla.firefox -y
+flatpak install flathub com.bitwarden.desktop -y
+flatpak install flathub org.gnome.Geary -y
+flatpak install flathub org.gnome.Extensions -y
 
 gsettings set org.gnome.desktop.interface clock-show-date true
 gsettings set org.gnome.desktop.interface clock-show-seconds true
 gsettings set org.gnome.desktop.interface clock-show-weekday true
 gsettings set org.gnome.desktop.wm.preferences button-layout ":minimize,maximize,close"
 gsettings set org.gnome.desktop.interface gtk-enable-primary-paste false
+
+distrobox create --home ~/.dev -i fedora-toolbox:38 --name dev
