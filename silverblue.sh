@@ -1,11 +1,11 @@
 #!/bin/bash
 # Need improvements.
 
-rpm-ostree override remove firefox firefox-langpacks 115.0.2-3.fc38 gnome-terminal-nautilus gnome-terminal
-rpm-ostree install gnome-boxes gnome-console langpacks-en langpacks-pt ibvirt-daemon-config-network zsh
+rpm-ostree install gnome-boxes gnome-console langpacks-pt ibvirt-daemon-config-network zsh
+rpm-ostree override remove firefox firefox-langpacks gnome-terminal-nautilus gnome-terminal
 
 sudo usermod -aG libvirt $USER
-sudo systemctle enable --now libvirtd virtnetworkd-ro.socket
+sudo systemctl enable --now libvirtd virtnetworkd-ro.socket
 
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
@@ -20,9 +20,7 @@ zsh
 
 flatpak install flathub org.freedesktop.Platform.ffmpeg-full -y
 flatpak install flathub com.bitwarden.desktop -y
-flatpak install flathub com.raggesilver.BlackBox -y
 flatpak install flathub com.visualstudio.code -y
-flatpak install flathub de.haeckerfelix.Fragments -y
 flatpak install flathub fr.handbrake.ghb -y
 flatpak install flathub org.mozilla.firefox -y
 
