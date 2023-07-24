@@ -2,7 +2,7 @@
 # Need improvements.
 
 
-rpm-ostree install distrobox gnome-boxes gnome-console langpacks-en langpacks-pt libvirt-daemon-config-network zsh
+rpm-ostree install distrobox gnome-boxes gnome-console langpacks-pt libvirt-daemon-config-network zsh
 #### RESTART ####
 
 rpm-ostree override remove firefox firefox-langpacks gnome-terminal-nautilus gnome-terminal
