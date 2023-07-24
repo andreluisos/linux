@@ -1,9 +1,8 @@
 #!/bin/bash
 # Need improvements.
 
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-rpm-ostree install gnome-boxes libvirt-daemon-config-network zsh
+rpm-ostree override remove firefox firefox-langpacks 115.0.2-3.fc38 gnome-terminal-nautilus gnome-terminal
+rpm-ostree install gnome-boxes gnome-console langpacks-en langpacks-pt ibvirt-daemon-config-network zsh
 
 sudo usermod -aG libvirt $USER
 sudo systemctle enable --now libvirtd virtnetworkd-ro.socket
@@ -18,9 +17,6 @@ sed -i 's/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions
 sed -i 's/# export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/g' ~/.zshrc
 export PATH=$HOME/bin:/usr/local/bin:$PATH
 zsh
-
-rpm-ostree override remove firefox firefox-langpacks 115.0.2-3.fc38 gnome-terminal-nautilus gnome-terminal
-rpm-ostree install gnome-boxes gnome-console langpacks-en langpacks-pt ibvirt-daemon-config-network zsh
 
 flatpak install flathub org.freedesktop.Platform.ffmpeg-full -y
 flatpak install flathub com.bitwarden.desktop -y
