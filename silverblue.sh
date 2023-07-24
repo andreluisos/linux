@@ -1,6 +1,10 @@
 #!/bin/bash
 # Need improvements.
 
+sudo firewall-cmd --get-active-zone
+sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/tcp
+sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/udp
+sudo firewall-cmd --reload
 
 rpm-ostree install distrobox gnome-boxes gnome-console langpacks-pt libvirt-daemon-config-network zsh
 #### RESTART ####
