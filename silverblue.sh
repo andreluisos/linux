@@ -33,7 +33,6 @@ flatpak install flathub fr.handbrake.ghb -y
 flatpak install flathub org.mozilla.firefox -y
 flatpak install flathub com.bitwarden.desktop -y
 flatpak install flathub org.gnome.Geary -y
-flatpak install flathub org.gnome.Extensions -y
 
 gsettings set org.gnome.desktop.interface clock-show-date true
 gsettings set org.gnome.desktop.interface clock-show-seconds true
