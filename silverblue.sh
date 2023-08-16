@@ -7,7 +7,7 @@ sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/udp
 sudo firewall-cmd --reload
 
-rpm-ostree install distrobox gnome-boxes gnome-console langpacks-pt libvirt-daemon-config-network zsh
+rpm-ostree install gnome-boxes gnome-console langpacks-pt libvirt-daemon-config-network zsh
 #### RESTART ####
 
 rpm-ostree override remove firefox firefox-langpacks gnome-terminal-nautilus gnome-terminal
@@ -26,18 +26,25 @@ sed -i 's/# export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/export PATH=$HOME\/bi
 export PATH=$HOME/bin:/usr/local/bin:$PATH
 zsh
 
-flatpak install flathub org.freedesktop.Platform.ffmpeg-full -y
-flatpak install flathub com.bitwarden.desktop -y
-flatpak install flathub com.visualstudio.code -y
-flatpak install flathub fr.handbrake.ghb -y
-flatpak install flathub org.mozilla.firefox -y
-flatpak install flathub com.bitwarden.desktop -y
-flatpak install flathub org.gnome.Geary -y
+flatpak install flathub -y app.drey.Warp
+flatpak install flathub -y com.bitwarden.desktop
+flatpak install flathub -y com.github.tchx84.Flatseal
+flatpak install flathub -y com.mattjakeman.ExtensionManager
+flatpak install flathub -y com.visualstudio.code
+flatpak install flathub -y fr.handbrake.ghb
+flatpak install flathub -y io.missioncenter.MissionCenter
+flatpak install flathub -y md.obsidian.Obsidian
+flatpak install flathub -y net.cozic.joplin_desktop
+flatpak install flathub -y org.fedoraproject.MediaWriter
+flatpak install flathub -y org.freedesktop.Platform.ffmpeg-full
+flatpak install flathub -y org.gaphor.Gaphor
+flatpak install flathub -y org.gnome.Geary
+flatpak install flathub -y org.gnome.Loupe
+flatpak install flathub -y org.mozilla.firefox
+flatpak install flathub -y org.videolan.VLC
 
 gsettings set org.gnome.desktop.interface clock-show-date true
 gsettings set org.gnome.desktop.interface clock-show-seconds true
 gsettings set org.gnome.desktop.interface clock-show-weekday true
 gsettings set org.gnome.desktop.wm.preferences button-layout ":minimize,maximize,close"
 gsettings set org.gnome.desktop.interface gtk-enable-primary-paste false
-
-distrobox create --home ~/.dev -i fedora-toolbox:38 --name dev
