@@ -16,3 +16,18 @@ git clone https://github.com/zsh-users/zsh-history-substring-search ${ZSH_CUSTOM
 sed -i 's/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions zsh-history-substring-search)\nautoload -U compinit \&\& compinit/g' ~/.zshrc 
 sed -i 's/# export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/g' ~/.zshrc
 export PATH=$HOME/bin:/usr/local/bin:$PATH
+
+gsettings set org.gnome.desktop.interface clock-show-date true
+gsettings set org.gnome.desktop.interface clock-show-seconds true
+gsettings set org.gnome.desktop.interface clock-show-weekday true
+gsettings set org.gnome.desktop.wm.preferences button-layout ":minimize,maximize,close"
+
+flatpak install flathub -y com.mattjakeman.ExtensionManager
+flatpak install flathub -y com.bitwarden.desktop
+flatpak install flathub -y com.github.tchx84.Flatseal
+flatpak install flathub -y fr.handbrake.ghb
+flatpak install flathub -y io.missioncenter.MissionCenter
+flatpak install flathub -y org.gaphor.Gaphor
+flatpak install flathub -y org.gnome.Geary
+flatpak install flathub -y org.gnome.Loupe
+flatpak install flathub -y org.videolan.VLC
