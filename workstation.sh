@@ -9,6 +9,7 @@ sudo dnf remove gnome-terminal-nautilus gnome-terminal
 
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
+# RUN ZSH'S install.sh BEFORE
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:=~/.oh-my-zsh/custom}/plugins/zsh-completions
@@ -22,6 +23,7 @@ gsettings set org.gnome.desktop.interface clock-show-seconds true
 gsettings set org.gnome.desktop.interface clock-show-weekday true
 gsettings set org.gnome.desktop.wm.preferences button-layout ":minimize,maximize,close"
 
+# ENABLE FLATHUB BEFORE
 flatpak install flathub -y com.mattjakeman.ExtensionManager
 flatpak install flathub -y com.bitwarden.desktop
 flatpak install flathub -y com.github.tchx84.Flatseal
