@@ -4,8 +4,8 @@ sudo firewall-cmd --get-active-zone
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/tcp
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/udp
 sudo firewall-cmd --reload
-sudo dnf install zsh git podman https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
-sudo dnf install ffmpeg
+sudo dnf install zsh git gnome-console
+sudo dnf remove gnome-terminal-nautilus gnome-terminal
 
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
