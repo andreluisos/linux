@@ -1,5 +1,9 @@
 #!/bin/bash
 
+sudo firewall-cmd --get-active-zone
+sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/tcp
+sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/udp
+sudo firewall-cmd --reload
 sudo dnf install zsh git podman https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
 sudo dnf install ffmpeg
 
