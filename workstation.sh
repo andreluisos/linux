@@ -4,8 +4,8 @@ sudo firewall-cmd --get-active-zone
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/tcp
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/udp
 sudo firewall-cmd --reload
-sudo dnf install zsh git gnome-console postgresql alsa-sof-firmware
-sudo dnf remove gnome-terminal-nautilus gnome-terminal
+sudo dnf install gnome-console zsh
+sudo dnf remove gnome-tour gnome-terminal gnome-software gnome-weather rhythmbox libreoffice-core totem totem-pl-parser yelp baobab gnome-characters gnome-connections gnome-user-docs gnome-maps gnome-font-viewer evince loupe
 
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
@@ -24,12 +24,4 @@ sed -i 's/# export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/export PATH=$HOME\/bi
 export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 # ENABLE FLATHUB BEFORE
-flatpak install flathub -y com.mattjakeman.ExtensionManager
-flatpak install flathub -y com.bitwarden.desktop
-flatpak install flathub -y com.github.tchx84.Flatseal
-flatpak install flathub -y fr.handbrake.ghb
-flatpak install flathub -y io.missioncenter.MissionCenter
-flatpak install flathub -y org.gaphor.Gaphor
-flatpak install flathub -y org.gnome.Geary
-flatpak install flathub -y org.gnome.Loupe
-flatpak install flathub -y org.videolan.VLC
+flatpak install com.bitwarden.desktop com.mattjakeman.ExtensionManager org.gnome.Papers org.gnome.Loupe org.videolan.VLC com.github.tchx84.Flatseal
