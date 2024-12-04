@@ -38,4 +38,3 @@ flatpak override --user --env=PATH="/app/bin:/usr/bin:$HOME/.asdf/shims" io.neov
 flatpak override --user --filesystem="$HOME/.asdf/shims/fd:ro" io.neovim.nvim
 flatpak override --user --filesystem="$HOME/.asdf/shims/lazygit:ro" io.neovim.nvim
 flatpak override --user --env=FLATPAK_ENABLE_SDK_EXT=node22,openjdk21 io.neovim.nvim
-flatpak override --user --filesystem="$HOME/.var/app/io.neovim.nvim/config/lazygit/config.yml:ro" io.neovim.nvim
