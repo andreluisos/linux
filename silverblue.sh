@@ -6,41 +6,26 @@ sudo firewall-cmd --get-active-zone
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/tcp
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/udp
 sudo firewall-cmd --reload
+rpm-ostree install gcc gnome-boxes gnome-console libvirt-daemon-config-network openssl-devel fish
+rpm-ostree override remove firefox firefox-langpacks
 
-rpm-ostree install gcc gnome-boxes gnome-console langpacks-pt libvirt-daemon-config-network openssl-devel perl podman-compose systemd-devel zsh
-#### RESTART ####
-
-rpm-ostree override remove firefox firefox-langpacks gnome-terminal-nautilus gnome-terminal
 sudo usermod -aG libvirt $USER
 sudo systemctl enable --now libvirtd virtnetworkd-ro.socket
-#### RESTART ####
-
-sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:=~/.oh-my-zsh/custom}/plugins/zsh-completions
-git clone https://github.com/zsh-users/zsh-history-substring-search ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-history-substring-search
-sed -i 's/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions zsh-history-substring-search)\nautoload -U compinit \&\& compinit/g' ~/.zshrc 
-sed -i 's/# export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/g' ~/.zshrc
-export PATH=$HOME/bin:/usr/local/bin:$PATH
-zsh
-
-flatpak install flathub -y app.drey.Warp
-flatpak install flathub -y com.bitwarden.desktop
-flatpak install flathub -y com.github.tchx84.Flatseal
-flatpak install flathub -y com.mattjakeman.ExtensionManager
-flatpak install flathub -y com.visualstudio.code
-flatpak install flathub -y fr.handbrake.ghb
-flatpak install flathub -y io.missioncenter.MissionCenter
-flatpak install flathub -y md.obsidian.Obsidian
-flatpak install flathub -y net.cozic.joplin_desktop
-flatpak install flathub -y org.fedoraproject.MediaWriter
-flatpak install flathub -y org.freedesktop.Platform.ffmpeg-full
-flatpak install flathub -y org.gaphor.Gaphor
-flatpak install flathub -y org.gnome.Geary
-flatpak install flathub -y org.gnome.Loupe
+flatpak install flathub -y org.gnome.TextEditor
 flatpak install flathub -y org.mozilla.firefox
+flatpak install flathub -y io.neovim.nvim
+flatpak install flathub -y com.mattjakeman.ExtensionManager
+flatpak install flathub -y com.jetbrains.WebStorm
+flatpak install flathub -y com.jetbrains.RustRover
+flatpak install flathub -y com.jetbrains.PyCharm-Professional
+flatpak install flathub -y com.jetbrains.IntelliJ-IDEA-Ultimate
+flatpak install flathub -y com.jetbrains.GoLand
+flatpak install flathub -y com.jetbrains.CLion
+flatpak install flathub -y com.google.Chrome
+flatpak install flathub -y com.github.tchx84.Flatseal
+flatpak install flathub -y org.freedesktop.Sdk.Extension.node22
+flatpak install flathub -y org.freedesktop.Sdk.Extension.openjdk21
+flatpak install flathub -y com.bitwarden.desktop
 flatpak install flathub -y org.videolan.VLC
 
 gsettings set org.gnome.desktop.interface clock-show-date true
@@ -48,3 +33,9 @@ gsettings set org.gnome.desktop.interface clock-show-seconds true
 gsettings set org.gnome.desktop.interface clock-show-weekday true
 gsettings set org.gnome.desktop.wm.preferences button-layout ":minimize,maximize,close"
 gsettings set org.gnome.desktop.interface gtk-enable-primary-paste false
+
+flatpak override --user --env=PATH="/app/bin:/usr/bin:$HOME/.asdf/shims" io.neovim.nvim
+flatpak override --user --filesystem="$HOME/.asdf/shims/fd:ro" io.neovim.nvim
+flatpak override --user --filesystem="$HOME/.asdf/shims/lazygit:ro" io.neovim.nvim
+flatpak override --user --env=FLATPAK_ENABLE_SDK_EXT=node22,openjdk21 io.neovim.nvim
+flatpak override --user --filesystem="$HOME/.var/app/io.neovim.nvim/config/lazygit/config.yml:ro" io.neovim.nvim
