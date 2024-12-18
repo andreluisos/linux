@@ -6,7 +6,7 @@ sudo firewall-cmd --get-active-zone
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/tcp
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/udp
 sudo firewall-cmd --reload
-rpm-ostree install gcc gnome-boxes gnome-console libvirt-daemon-config-network openssl-devel fish
+rpm-ostree install fish fzf gcc gnome-boxes gnome-shell-extension-pop-shell kitty libvirt-daemon-config-network neovim openssl-devel postgresql tmux
 rpm-ostree override remove firefox firefox-langpacks
 
 sudo usermod -aG libvirt $USER
