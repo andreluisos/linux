@@ -2,31 +2,27 @@
 # Need improvements.
 
 sudo ostree admin pin 0
-sudo firewall-cmd --get-active-zone
-sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/tcp
-sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/udp
+sudo firewall-cmd --zone=$(sudo firewall-cmd --get-active-zone | head -n 1 | awk '{print $1}'
+) --permanent --remove-port=1025-65535/tcp --remove-port=1025-65535/udp --reload
 sudo firewall-cmd --reload
-rpm-ostree install fish fzf gcc gnome-boxes gnome-shell-extension-pop-shell kitty libvirt-daemon-config-network neovim openssl-devel postgresql tmux
+rpm-ostree install fish gnome-boxes kitty libvirt-daemon-config-network neovim tmux
 rpm-ostree override remove firefox firefox-langpacks
 
 sudo usermod -aG libvirt $USER
 sudo systemctl enable --now libvirtd virtnetworkd-ro.socket
-flatpak install flathub -y org.gnome.TextEditor
-flatpak install flathub -y org.mozilla.firefox
-flatpak install flathub -y io.neovim.nvim
-flatpak install flathub -y com.mattjakeman.ExtensionManager
-flatpak install flathub -y com.jetbrains.WebStorm
-flatpak install flathub -y com.jetbrains.RustRover
-flatpak install flathub -y com.jetbrains.PyCharm-Professional
-flatpak install flathub -y com.jetbrains.IntelliJ-IDEA-Ultimate
-flatpak install flathub -y com.jetbrains.GoLand
-flatpak install flathub -y com.jetbrains.CLion
-flatpak install flathub -y com.google.Chrome
-flatpak install flathub -y com.github.tchx84.Flatseal
-flatpak install flathub -y org.freedesktop.Sdk.Extension.node22
-flatpak install flathub -y org.freedesktop.Sdk.Extension.openjdk21
-flatpak install flathub -y com.bitwarden.desktop
-flatpak install flathub -y org.videolan.VLC
+
+flatpak install flathub -y org.mozilla.firefox \
+com.mattjakeman.ExtensionManager \
+com.jetbrains.WebStorm \
+com.jetbrains.RustRover \
+com.jetbrains.PyCharm-Professional \
+com.jetbrains.IntelliJ-IDEA-Ultimate \
+com.jetbrains.GoLand \
+com.jetbrains.CLion \
+com.github.tchx84.Flatseal \
+com.bitwarden.desktop \
+org.videolan.VLC
+
 
 gsettings set org.gnome.desktop.interface clock-show-date true
 gsettings set org.gnome.desktop.interface clock-show-seconds true
