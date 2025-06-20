@@ -25,3 +25,5 @@ sed -i 's/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions
 sed -i 's/# export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/export PATH=$HOME\/bin:\/usr\/local\/bin:$PATH/g' ~/.zshrc
 export PATH=$HOME/bin:/usr/local/bin:$PATH
 zsh
+
+git clone git@github.com:andreluisos/nvim.git ~/.config/nvim
