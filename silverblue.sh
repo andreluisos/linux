@@ -10,10 +10,6 @@ gsettings set org.gnome.desktop.interface gtk-enable-primary-paste false
 sudo ostree admin pin 0
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/tcp --remove-port=1025-65535/udp
 sudo firewall-cmd --reload
-rpm-ostree install distrobox gnome-boxes libvirt-daemon-config-network postgresql zsh
-# Reboot
-sudo usermod -aG libvirt $USER
-sudo systemctl enable --now libvirtd virtnetworkd-ro.socket
 
 sudo btrfs subvolume create /var/swap
 sudo chattr +C /var/swap
@@ -21,6 +17,12 @@ sudo chmod 600 /var/swap/swapfile
 sudo mkswap /var/swap/swapfile
 sudo swapon /var/swap/swapfile
 echo '/var/swap/swapfile none swap defaults,pri=-2 0 0' | sudo tee -a /etc/fstab
+
+rpm-ostree install distrobox gnome-boxes libvirt-daemon-config-network postgresql zsh
+
+# Reboot
+sudo usermod -aG libvirt $USER
+sudo systemctl enable --now libvirtd virtnetworkd-ro.socket
 
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 sudo dd if=/dev/zero of=/var/swap/swapfile bs=1M count=32768 status=progress
