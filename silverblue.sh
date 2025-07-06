@@ -15,8 +15,15 @@ rpm-ostree install distrobox gnome-boxes libvirt-daemon-config-network postgresq
 sudo usermod -aG libvirt $USER
 sudo systemctl enable --now libvirtd virtnetworkd-ro.socket
 
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+sudo btrfs subvolume create /var/swap
+sudo chattr +C /var/swap
+sudo chmod 600 /var/swap/swapfile
+sudo mkswap /var/swap/swapfile
+sudo swapon /var/swap/swapfile
+echo '/var/swap/swapfile none swap defaults,pri=-2 0 0' | sudo tee -a /etc/fstab
 
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+sudo dd if=/dev/zero of=/var/swap/swapfile bs=1M count=32768 status=progress
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:=~/.oh-my-zsh/custom}/plugins/zsh-completions
