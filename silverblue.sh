@@ -18,8 +18,8 @@ sudo mkswap /var/swap/swapfile
 sudo swapon /var/swap/swapfile
 echo '/var/swap/swapfile none swap defaults,pri=-2 0 0' | sudo tee -a /etc/fstab
 
-rpm-ostree install distrobox gnome-boxes libvirt-daemon-config-network postgresql zsh
-
+rpm-ostree install distrobox gtk4-devel gtk4-layer-shell-devel libvirt-daemon-config-network libvirt-daemon-kvm  qemu-kvm virt-manager zsh
+# ffpmpeg intel-media-driver postgresql
 # Reboot
 sudo usermod -aG libvirt $USER
 sudo systemctl enable --now libvirtd virtnetworkd-ro.socket
