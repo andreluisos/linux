@@ -11,8 +11,9 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     # --- Clean up previous environment ---
     echo "Cleaning up old container and volume..."
     # FIX: Use variables for container and volume names for consistency.
-    podman rm -f "$CONTAINER" && podman volume rm "$CONTAINER"
-
+    podman rm -f "$CONTAINER"
+    podman volume rm "$CONTAINER"
+    
     # --- Create new environment ---
     echo "Creating new volume and container..."
     podman volume create "$CONTAINER"
