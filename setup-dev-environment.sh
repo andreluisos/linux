@@ -85,6 +85,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     sed -i "s/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions zsh-history-substring-search)/g" .zshrc
     sed -i "s/# export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/g" .zshrc
     echo "autoload -U compinit && compinit" >> .zshrc
+    echo "eval \$(keychain --eval --quiet \$(grep -srlF -e \"PRIVATE KEY\" ~/.ssh))" >> .zshrc
+    mkdir -p .ssh
 
     # --- Install SDKMAN! and GraalVM ---
     echo "Installing SDKMAN!..."
