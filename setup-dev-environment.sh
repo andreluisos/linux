@@ -29,7 +29,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     podman exec -u root "$CONTAINER" dnf update -y
     
     # Install all necessary dependencies
-    podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata lm_sensors @development-tools
+    podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata lm_sensors keychain @development-tools
 
     # Install locale information and set it system-wide
     podman exec -u root "$CONTAINER" sh -c 'dnf install -y glibc-langpack-en && echo "LANG=en_US.UTF-8" > /etc/locale.conf'
