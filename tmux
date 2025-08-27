@@ -1,3 +1,7 @@
+# Set proper colors
+set -g default-terminal "tmux-256color"
+set -as terminal-features ",gnome*:RGB"
+
 # Start windows and panes at 1, not 0
 set -g base-index 1
 set -g pane-base-index 1
