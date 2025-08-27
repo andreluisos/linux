@@ -63,7 +63,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 
     # --- Download Tmux configuration ---
     mkdir -p .config/tmux
-    curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux.conf
+    curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux
     git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm
 
     # --- Install Oh My Zsh non-interactively ---
