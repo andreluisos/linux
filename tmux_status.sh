@@ -4,7 +4,7 @@
 
 # --- CPU Usage ---
 cpu_usage=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
-cpu_info=$(printf "󰻠 %.0f%%" "$cpu_usage")
+cpu_info=$(printf "󰍛 %.0f%%" "$cpu_usage")
 
 # --- CPU Temperature ---
 temp_info=""
@@ -25,9 +25,10 @@ elif [ -f /sys/class/thermal/thermal_zone0/temp ]; then
     temp_info="󰔏 ${temp_c}°C"
 fi
 
+
 # --- RAM and Swap Usage ---
 mem_swap_info=$(free | awk '
-  /Mem/  { mem=sprintf("󰍛 %.0f%%", $3/$2 * 100) }
+  /Mem/  { mem=sprintf("󰘚 %.0f%%", $3/$2 * 100) }
   /Swap/ { swap=sprintf("󰁯 %.0f%%", $2>0?$3/$2*100:0) }
   END    { print mem " | " swap }
 ')
