@@ -23,7 +23,6 @@ echo "Setting up environment variables in .profile..."
   echo '' # Add a newline for separation
   echo '# --- Custom Environment Variables ---'
   echo 'export EDITOR="vi"'
-  echo 'export DEV_CONTAINER="development"'
 } >> "$HOME/.profile"
 echo "Environment variables added."
 
