@@ -82,6 +82,10 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "autoload -U compinit && compinit" >> .zshrc
     sed -i "s/# export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/g" .zshrc
 
+    # --- Add color environment variables for proper terminal color support ---
+    echo "export COLORTERM=truecolor" >> .zshrc
+    echo "export TERM=xterm-256color" >> .zshrc
+    
     # --- Install SDKMAN! and GraalVM ---
     echo "Installing SDKMAN!..."
     curl -s "https://get.sdkman.io" | bash
