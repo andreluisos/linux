@@ -4,6 +4,8 @@ set -g pane-base-index 1
 set-window-option -g pane-base-index 1
 set-option -g renumber-windows on
 set -g mouse on
+set -g status-right-length 100
+set -g status-right "#(~/.config/tmux/status.sh) | %a %Y-%m-%d %H:%M"
 
 # Initialize TMUX plugin manager (keep this line at the very bottom)
 # List of plugins
