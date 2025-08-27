@@ -84,7 +84,6 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     # --- Configure .zshrc ---
     sed -i "s/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions zsh-history-substring-search)/g" .zshrc
     echo "autoload -U compinit && compinit" >> .zshrc
-    sed -i "s/# export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/g" .zshrc
 
     # --- Add color environment variables for proper terminal color support ---
     echo "export COLORTERM=truecolor" >> .profile
