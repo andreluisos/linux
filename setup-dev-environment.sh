@@ -89,6 +89,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     # --- Add color environment variables for proper terminal color support ---
     echo "export COLORTERM=truecolor" >> .profile
     echo "export TERM=xterm-256color" >> .profile
+    echo "export PATH=\"$HOME/.local/bin:$HOME/bin:$PATH\"" >> .profile
     source .profile
     
     # --- Install SDKMAN! and GraalVM ---
