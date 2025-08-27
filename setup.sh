@@ -39,14 +39,15 @@ fc-cache -fv
 # Downloads the necessary scripts from the specified GitHub repository.
 # It places them in the user's home directory and makes them executable.
 echo "Downloading utility scripts..."
-wget -O "$HOME/build-ghostty.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/build-ghostty.sh
-wget -O "$HOME/create-ghostty-shortcut.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/create-ghostty-shortcut.sh
-wget -O "$HOME/setup-dev-environment.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/setup-dev-environment.sh
+mkdir -p "$HOME/.scripts"
+wget -O "$HOME/.scripts/build-ghostty.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/build-ghostty.sh
+wget -O "$HOME/.scripts/create-ghostty-shortcut.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/create-ghostty-shortcut.sh
+wget -O "$HOME/.scripts/setup-dev-environment.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/setup-dev-environment.sh
 
 # Make the downloaded scripts executable
-chmod +x "$HOME/build-ghostty.sh"
-chmod +x "$HOME/create-ghostty-shortcut.sh"
-chmod +x "$HOME/setup-dev-environment.sh"
+chmod +x "$HOME/.scripts/build-ghostty.sh"
+chmod +x "$HOME/.scripts/create-ghostty-shortcut.sh"
+chmod +x "$HOME/.scripts/setup-dev-environment.sh"
 echo "Scripts downloaded and made executable."
 
 # --- Script Execution Confirmation ---
@@ -59,21 +60,21 @@ read -p "Run setup-dev-environment.sh? (y/n): " run_dev_env
 echo "Running selected setup scripts..."
 if [[ "$run_dev_env" =~ ^[Yy]$ ]]; then
     echo "Executing setup-dev-environment.sh..."
-    "$HOME/setup-dev-environment.sh"
+    "$HOME/.scripts/setup-dev-environment.sh"
 else
     echo "Skipping setup-dev-environment.sh."
 fi
 
 if [[ "$run_build" =~ ^[Yy]$ ]]; then
     echo "Executing build-ghostty.sh..."
-    "$HOME/build-ghostty.sh"
+    "$HOME/.scripts/build-ghostty.sh"
 else
     echo "Skipping build-ghostty.sh."
 fi
 
 if [[ "$run_shortcut" =~ ^[Yy]$ ]]; then
     echo "Executing create-ghostty-shortcut.sh..."
-    "$HOME/create-ghostty-shortcut.sh"
+    "$HOME/.scripts/create-ghostty-shortcut.sh"
 else
     echo "Skipping create-ghostty-shortcut.sh."
 fi
