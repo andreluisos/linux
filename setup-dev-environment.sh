@@ -4,7 +4,7 @@
 USERNAME="$USER"
 CONTAINER="fedora-development"
 
-read -p "This will permanently remove the '$CONTAINER' container and the '$CONTAINER' volume. Are you sure you want to continue? (y/N) " -n 1 -r
+read -p "This will permanently remove the '$CONTAINER' container and the '$CONTAINER' volume. Are you sure you want to continue? (y/N) " -r
 echo # Move to a new line after input
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
