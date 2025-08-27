@@ -28,10 +28,10 @@ echo "Environment variables added."
 
 # Install JetBrains Mono Nerd Font
 echo "Installing Nerd Fonts..."
-mkdir -p $HOME/.local/share/fonts
+mkdir -p "$HOME/.local/share/fonts"
 curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
-mkdir -p $HOME/.local/share/fonts/JetBrainsMonoNF
-unzip /tmp/fonts.zip -d $HOME/.local/share/fonts/JetBrainsMonoNF
+mkdir -p "$HOME/.local/share/fonts/JetBrainsMonoNF"
+unzip /tmp/fonts.zip -d "$HOME/.local/share/fonts/JetBrainsMonoNF"
 rm /tmp/fonts.zip
 fc-cache -fv
 
@@ -87,6 +87,17 @@ mkdir -p "$HOME/.config/ghostty"
 wget -O "$HOME/.config/ghostty/config" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/ghostty
 echo "Ghostty configuration downloaded."
 
+# --- GTK4 CSS Override ---
+# Creates a CSS file to override GTK4 styles for solid client-side decorations.
+echo "Creating GTK4 CSS override..."
+mkdir -p "$HOME/.config/gtk-4.0"
+cat <<EOF > "$HOME/.config/gtk-4.0/gtk.css"
+window.solid-csd {
+  padding: 0;
+}
+EOF
+echo "GTK4 CSS override created."
+
 # --- Command Alias Setup ---
 # Creates aliases in .profile for the downloaded scripts for easy access.
 echo "Creating command aliases in .profile..."
@@ -104,4 +115,3 @@ echo "Applying changes to the current session..."
 source "$HOME/.profile"
 
 echo "Setup complete! Your profile has been updated and sourced. For all changes to take full effect, you may need to log out and log back in."
-
