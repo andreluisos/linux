@@ -2,24 +2,24 @@
 
 # --- Define user and container names for clarity ---
 USERNAME="$USER"
-CONTAINER="${DEV_CONTAINER:-development}"
+CONTAINER="fedora-development"
 
-read -p "This will permanently remove the '$CONTAINER' container and the 'fedora-$CONTAINER' volume. Are you sure you want to continue? (y/N) " -n 1 -r
+read -p "This will permanently remove the '$CONTAINER' container and the '$CONTAINER' volume. Are you sure you want to continue? (y/N) " -n 1 -r
 echo # Move to a new line after input
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     # --- Clean up previous environment ---
     echo "Cleaning up old container and volume..."
     # FIX: Use variables for container and volume names for consistency.
-    podman rm -f "$CONTAINER" && podman volume rm "fedora-$CONTAINER"
+    podman rm -f "$CONTAINER" && podman volume rm "$CONTAINER"
 
     # --- Create new environment ---
     echo "Creating new volume and container..."
-    podman volume create "fedora-$CONTAINER"
+    podman volume create "$CONTAINER"
     # FIX: Use variable for the container name.
     podman run -d --name "$CONTAINER" \
     --userns=keep-id \
-    -v "fedora-$CONTAINER":/home/"$USER":z \
+    -v "$CONTAINER":/home/"$USER":z \
     registry.fedoraproject.org/fedora-toolbox:latest \
     sleep infinity
 
