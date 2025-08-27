@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SHORTCUT_NAME="Launch Ghostty"
-COMMAND_TO_RUN="$HOME/.local/bin/ghostty"
+COMMAND_TO_RUN=$(which ghostty)
 KEY_BINDING="<Super>t"
 # -----------------------------------------
 
