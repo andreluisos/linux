@@ -20,7 +20,7 @@ CONTAINER="development"
 # --- Run setup commands as root ---
 echo "🔧 Running setup as root (installing tools, fonts, setting user)..."
 # Install all necessary dependencies
-podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux
+podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux @development-tools
 
 # Install JetBrains Mono Nerd Font
 echo "✅ Installing Nerd Fonts..."
