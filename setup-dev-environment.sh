@@ -24,6 +24,10 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 
     # --- Run setup commands as root ---
     echo "Running setup as root..."
+
+    # Update system
+    podman exec -u root "$CONTAINER" dnf update -y
+    
     # Install all necessary dependencies
     podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata lm_sensors @development-tools
 
