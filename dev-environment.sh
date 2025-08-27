@@ -14,16 +14,25 @@ registry.fedoraproject.org/fedora-toolbox:latest \
 sleep infinity
 
 # --- Define user and container names for clarity ---
-USERNAME="andreluis"
+USERNAME="$USER"
 CONTAINER="development"
 
 # --- Run setup commands as root ---
-echo "🔧 Running setup as root (installing tools, fonts, setting user)..."
+echo "Running setup as root (installing tools, fonts, setting user)..."
 # Install all necessary dependencies
-podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux @development-tools
+podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata @development-tools
+
+# Install locale information and set it system-wide
+podman exec -u root "$CONTAINER" sh -c 'dnf install -y glibc-langpack-en && echo "LANG=en_US.UTF-8" > /etc/locale.conf'
+
+# Set the timezone to São Paulo / Brazil
+podman exec -u root "$CONTAINER" ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+
+# Install locale information and set it system-wide
+podman exec -u root "$CONTAINER" sh -c 'dnf install -y glibc-langpack-en && echo "LANG=en_US.UTF-8" > /etc/locale.conf'
 
 # Install JetBrains Mono Nerd Font
-echo "✅ Installing Nerd Fonts..."
+echo "Installing Nerd Fonts..."
 podman exec -u root "$CONTAINER" sh -c '
 curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
 mkdir -p /usr/local/share/fonts/JetBrainsMonoNF
@@ -39,7 +48,7 @@ podman exec -u root "$CONTAINER" chown -R "$USERNAME:$USERNAME" "/home/$USERNAME
 podman exec -u root "$CONTAINER" usermod -d "/home/$USERNAME" -s /usr/bin/zsh "$USERNAME"
 
 # --- Run setup commands as the user ---
-echo "🧑 Configuring user environment (Neovim, Oh My Zsh, SDKMAN!, etc.)..."
+echo "Configuring user environment (Neovim, Oh My Zsh, SDKMAN!, etc.)..."
 # We use zsh -c '...' here so that sourcing sdkman-init.sh works correctly
 podman exec -u "$USERNAME" -w "/home/$USERNAME" "$CONTAINER" /bin/zsh -c '
 # --- Create standard directories first ---
@@ -91,7 +100,4 @@ GRADLE_IDENTIFIER=$(sdk list gradle | sed -n "4p" | awk "{print \$1}")
 sdk install gradle $GRADLE_IDENTIFIER
 '
 
-echo "🎉 Setup complete! Entering the container with your new Zsh shell..."
-
-# --- Enter the new environment with a Zsh login shell, starting in the home directory ---
-podman exec -it -w "/home/$USERNAME" "$CONTAINER" /bin/zsh -l
+echo "Setup complete!"
