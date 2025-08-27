@@ -1,6 +1,0 @@
-podman volume create fedora-dev-storage
-podman run -it --name development \
---userns=keep-id \
--v fedora-development:/home/$USER:z \
-registry.fedoraproject.org/fedora-toolbox:latest
-podman exec -u root development sh -c "echo '$USER ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/$USER"
