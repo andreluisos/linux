@@ -22,6 +22,7 @@ gsettings set org.gnome.desktop.interface clock-format '24h'
 gsettings set org.gnome.nautilus.preferences default-folder-viewer 'list-view'
 gsettings set org.gtk.gtk4.Settings.FileChooser sort-directories-first true
 gsettings set org.gnome.nautilus.list-view use-tree-view true
+gsettings set org.gnome.desktop.interface show-battery-percentage true
 echo "GNOME settings applied."
 
 # --- Environment Variable Setup ---
