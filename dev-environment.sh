@@ -52,6 +52,7 @@ git clone https://github.com/andreluisos/nvim.git .config/nvim
 # --- Download Tmux configuration ---
 mkdir -p .config/tmux
 curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux.conf
+git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm
 
 # --- Install Oh My Zsh non-interactively ---
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
@@ -81,6 +82,13 @@ GRAALVM_IDENTIFIER=$(sdk list java | grep "graalce" | head -n 1 | cut -d"|" -f6 
 
 # Install and set as default
 sdk install java $GRAALVM_IDENTIFIER
+
+echo "Installing latest Gradle..."
+# Find the latest identifier for Gradle
+GRADLE_IDENTIFIER=$(sdk list gradle | sed -n "4p" | awk "{print \$1}")
+
+# Install and set as default
+sdk install gradle $GRADLE_IDENTIFIER
 '
 
 echo "🎉 Setup complete! Entering the container with your new Zsh shell..."
