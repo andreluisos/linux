@@ -2,7 +2,7 @@
 
 # This script automates the setup of a Linux development environment.
 # It configures GNOME settings, sets up environment variables,
-# downloads utility scripts, and creates aliases for them.
+# downloads utility scripts, asks for confirmation, runs them, and creates aliases.
 
 echo "Starting environment setup..."
 
@@ -33,17 +33,48 @@ echo "Environment variables added."
 echo "Downloading utility scripts..."
 wget -O "$HOME/build-ghostty.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/build-ghostty.sh
 wget -O "$HOME/create-ghostty-shortcut.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/create-ghostty-shortcut.sh
-wget -O "$HOME/dev-environment.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/dev-environment.sh
+wget -O "$HOME/setup-dev-environment.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/setup-dev-environment.sh
 
 # Make the downloaded scripts executable
 chmod +x "$HOME/build-ghostty.sh"
 chmod +x "$HOME/create-ghostty-shortcut.sh"
-chmod +x "$HOME/dev-environment.sh"
+chmod +x "$HOME/setup-dev-environment.sh"
 echo "Scripts downloaded and made executable."
+
+# --- Script Execution Confirmation ---
+echo "Please confirm which scripts you would like to run."
+read -p "Run build-ghostty.sh? (y/n): " run_build
+read -p "Run create-ghostty-shortcut.sh? (y/n): " run_shortcut
+read -p "Run setup-dev-environment.sh? (y/n): " run_dev_env
+
+# --- Running Downloaded Scripts ---
+echo "Running selected setup scripts..."
+if [[ "$run_dev_env" =~ ^[Yy]$ ]]; then
+    echo "Executing setup-dev-environment.sh..."
+    "$HOME/setup-dev-environment.sh"
+else
+    echo "Skipping setup-dev-environment.sh."
+fi
+
+if [[ "$run_build" =~ ^[Yy]$ ]]; then
+    echo "Executing build-ghostty.sh..."
+    "$HOME/build-ghostty.sh"
+else
+    echo "Skipping build-ghostty.sh."
+fi
+
+if [[ "$run_shortcut" =~ ^[Yy]$ ]]; then
+    echo "Executing create-ghostty-shortcut.sh..."
+    "$HOME/create-ghostty-shortcut.sh"
+else
+    echo "Skipping create-ghostty-shortcut.sh."
+fi
+echo "Scripts execution phase complete."
+
 
 # --- Ghostty Configuration ---
 # Creates the necessary directory and downloads the ghostty config file.
-echo "⚙Downloading ghostty configuration..."
+echo "Downloading ghostty configuration..."
 mkdir -p "$HOME/.config/ghostty"
 wget -O "$HOME/.config/ghostty/config" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/ghostty
 echo "Ghostty configuration downloaded."
@@ -55,9 +86,14 @@ echo "Creating command aliases in .profile..."
   echo '' # Add a newline for separation
   echo '# --- Custom Command Aliases ---'
   echo 'alias build-ghostty="$HOME/build-ghostty.sh"'
-  echo 'alias set-dev-env="$HOME/dev-environment.sh"'
+  echo 'alias set-dev-env="$HOME/setup-dev-environment.sh"'
 } >> "$HOME/.profile"
 echo "Command aliases created."
 
-echo "Setup complete! Please run 'source ~/.profile' or log out and log back in for the changes to take effect."
+# --- Source the profile to apply changes ---
+echo "Applying changes to the current session..."
+# shellcheck source=/dev/null
+source "$HOME/.profile"
+
+echo "Setup complete! Your profile has been updated and sourced. For all changes to take full effect, you may need to log out and log back in."
 
