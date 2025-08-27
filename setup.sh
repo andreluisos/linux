@@ -27,6 +27,15 @@ echo "Setting up environment variables in .profile..."
 } >> "$HOME/.profile"
 echo "Environment variables added."
 
+# Install JetBrains Mono Nerd Font
+echo "Installing Nerd Fonts..."
+mkdir -p $HOME/.local/share/fonts
+curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
+mkdir -p $HOME/.local/share/fonts/JetBrainsMonoNF
+unzip /tmp/fonts.zip -d $HOME/.local/share/fonts/JetBrainsMonoNF
+rm /tmp/fonts.zip
+fc-cache -fv
+
 # --- Script Downloads ---
 # Downloads the necessary scripts from the specified GitHub repository.
 # It places them in the user's home directory and makes them executable.
