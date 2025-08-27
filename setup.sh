@@ -87,17 +87,6 @@ mkdir -p "$HOME/.config/ghostty"
 wget -O "$HOME/.config/ghostty/config" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/ghostty
 echo "Ghostty configuration downloaded."
 
-# --- GTK4 CSS Override ---
-# Creates a CSS file to override GTK4 styles for solid client-side decorations.
-echo "Creating GTK4 CSS override..."
-mkdir -p "$HOME/.config/gtk-4.0"
-cat <<EOF > "$HOME/.config/gtk-4.0/gtk.css"
-window.solid-csd {
-  padding: 0;
-}
-EOF
-echo "GTK4 CSS override created."
-
 # --- Command Alias Setup ---
 # Creates aliases in .profile for the downloaded scripts for easy access.
 echo "Creating command aliases in .profile..."
