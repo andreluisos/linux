@@ -83,14 +83,9 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 
     # --- Configure .zshrc ---
     sed -i "s/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions zsh-history-substring-search)/g" .zshrc
+    sed -i "s/# export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/g" .zshrc
     echo "autoload -U compinit && compinit" >> .zshrc
 
-    # --- Add color environment variables for proper terminal color support ---
-    echo "export COLORTERM=truecolor" >> .profile
-    echo "export TERM=xterm-256color" >> .profile
-    echo "export PATH=\"$HOME/.local/bin:$HOME/bin:$PATH\"" >> .profile
-    source .profile
-    
     # --- Install SDKMAN! and GraalVM ---
     echo "Installing SDKMAN!..."
     curl -s "https://get.sdkman.io" | bash
