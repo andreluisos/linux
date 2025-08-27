@@ -7,4 +7,4 @@ maximize = true
 window-padding-balance = true
 window-padding-x = 0
 window-padding-y = 0
-command = podman start development && podman exec -it -w "/home/$USERNAME" "development" /bin/zsh -c "tmux -u"
+command = podman start fedora-development && podman exec -it -w "/home/$USERNAME" fedora-development /bin/zsh -c "tmux -u"
