@@ -4,4 +4,4 @@ font-family = JetBrainsMono Nerd Font
 bold-is-bright = true
 window-padding-x = 0
 fullscreen = true
-command = podman exec -it -w "/home/$USERNAME" "$DEV_CONTAINER" /bin/zsh -c "tmux -u"
+command = podman exec -it -w "/home/$USERNAME" "fedora-development" /bin/zsh -c "tmux -u"
