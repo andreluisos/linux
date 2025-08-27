@@ -1,3 +1,9 @@
+# Fix color issues with Ghostty and Neovim
+set -g default-terminal "tmux-256color"
+set -as terminal-overrides ",xterm*:Tc"
+set -as terminal-overrides ",xterm*:colors=256"
+set -as terminal-features ",ghostty:RGB"
+
 # Start windows and panes at 1, not 0
 set -g base-index 1
 set -g pane-base-index 1
