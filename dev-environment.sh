@@ -15,7 +15,7 @@ sleep infinity
 
 # --- Define user and container names for clarity ---
 USERNAME="$USER"
-CONTAINER="development"
+CONTAINER="${DEV_CONTAINER:-development}"
 
 # --- Run setup commands as root ---
 echo "Running setup as root (installing tools, fonts, setting user)..."
