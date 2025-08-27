@@ -87,8 +87,9 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     sed -i "s/# export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/g" .zshrc
 
     # --- Add color environment variables for proper terminal color support ---
-    echo "export COLORTERM=truecolor" >> .zshrc
-    echo "export TERM=xterm-256color" >> .zshrc
+    echo "export COLORTERM=truecolor" >> .profile
+    echo "export TERM=xterm-256color" >> .profile
+    source .profile
     
     # --- Install SDKMAN! and GraalVM ---
     echo "Installing SDKMAN!..."
