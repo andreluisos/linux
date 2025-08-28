@@ -1,4 +1,4 @@
-# Need improvements.
+# WIP!!!
 
 sudo ostree admin pin 0
 sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/tcp --remove-port=1025-65535/udp
