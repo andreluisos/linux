@@ -18,6 +18,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     # FIX: Use variable for the container name.
     podman run -d --name "$CONTAINER" \
     --userns=keep-id \
+    --pids-limit=-1 \
     -v "$CONTAINER":/home/"$USER":z \
     registry.fedoraproject.org/fedora-toolbox:latest \
     sleep infinity
