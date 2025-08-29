@@ -95,18 +95,18 @@ curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/l
 curl -fLo .config/tmux/tmux_status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux_status.sh
 chmod +x .config/tmux/tmux_status.sh
 
-# FIX: Check if TPM is already installed before cloning
+# Check if TPM is already installed before cloning
 if [ ! -d ".tmux/plugins/tpm" ]; then
     git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm
 fi
 
-# FIX: Check if Oh My Zsh is already installed
+# Check if Oh My Zsh is already installed
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    # --- Install Oh My Zsh non-interactively ---
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-else
-    echo "Oh My Zsh is already installed, skipping."
+    rm .oh-my-zsh
 fi
+
+# --- Install Oh My Zsh non-interactively ---
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
 # --- Install Zsh plugins ---
 ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
