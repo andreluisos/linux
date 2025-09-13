@@ -40,6 +40,7 @@ if ! podman volume exists "$CONTAINER"; then
 fi
 
 podman run -d --name "$CONTAINER" \
+    --network=host \
     --userns=keep-id \
     --pids-limit=-1 \
     -v "$CONTAINER":/home/"$USER":z \
