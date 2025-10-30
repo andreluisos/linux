@@ -41,7 +41,7 @@ if ! podman volume exists "$CONTAINER"; then
     podman volume create "$CONTAINER"
 fi
 
-podman run -d --name fedora-development-wayland \
+podman run -d --name $CONTAINER \
   --userns=keep-id \
   --group-add keep-groups \
   --security-opt label=disable \
