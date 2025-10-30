@@ -3,6 +3,8 @@
 # --- Define user and container names for clarity ---
 USERNAME="$USER"
 CONTAINER="fedora-development"
+HOST_XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
+HOST_WAYLAND_DISPLAY=$WAYLAND_DISPLAY
 
 # --- Pre-flight checks and cleanup ---
 
@@ -39,13 +41,13 @@ if ! podman volume exists "$CONTAINER"; then
     podman volume create "$CONTAINER"
 fi
 
-podman run -d --name "$CONTAINER" \
-    --network=host \
-    --userns=keep-id \
-    --pids-limit=-1 \
-    -v "$CONTAINER":/home/"$USER":z \
-    registry.fedoraproject.org/fedora-toolbox:latest \
-    sleep infinity
+podman run -d --name fedora-development \
+  -e XDG_RUNTIME_DIR=/tmp \
+  -e WAYLAND_DISPLAY=$HOST_WAYLAND_DISPLAY \
+  -v $HOST_XDG_RUNTIME_DIR/$HOST_WAYLAND_DISPLAY:/tmp/$HOST_WAYLAND_DISPLAY \
+  --userns=keep-id \
+  fedora:latest \
+  sleep infinity
 
 # --- Run setup commands as root ---
 echo "Running setup as root..."

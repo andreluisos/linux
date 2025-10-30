@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SHORTCUT_NAME="Launch Ghostty"
-COMMAND_TO_RUN=$(which ghostty)
+SHORTCUT_NAME="Launch developer environment"
+COMMAND_TO_RUN="ptyxis -x \"podman exec -it -w '/home/andreluis' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY fedora-development /bin/zsh -c 'tmux -u'\" --fullscreen"
 KEY_BINDING="<Super>t"
 # -----------------------------------------
 
