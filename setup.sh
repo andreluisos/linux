@@ -51,13 +51,24 @@ echo "Setting up environment variables in .profile..."
 echo "Environment variables added."
 
 # Install JetBrains Mono Nerd Font
-echo "Installing Nerd Fonts..."
-mkdir -p "$HOME/.local/share/fonts"
-curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
-mkdir -p "$HOME/.local/share/fonts/JetBrainsMonoNF"
-unzip /tmp/fonts.zip -d "$HOME/.local/share/fonts/JetBrainsMonoNF"
-rm /tmp/fonts.zip
-fc-cache -fv
+FONT_NAME="JetBrainsMono Nerd Font"
+FONT_DIR="$HOME/.local/share/fonts/JetBrainsMonoNF"
+
+echo "Checking for '$FONT_NAME'..."
+
+# Use fc-list to check if the font is already registered by the system
+if fc-list | grep -q "$FONT_NAME"; then
+    echo "'$FONT_NAME' is already installed. Skipping download and installation."
+else
+    echo "'$FONT_NAME' not found. Installing now..."
+    mkdir -p "$HOME/.local/share/fonts"
+    curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
+    mkdir -p "$FONT_DIR"
+    unzip /tmp/fonts.zip -d "$FONT_DIR"
+    rm /tmp/fonts.zip
+    fc-cache -fv
+    echo "Nerd Fonts installed and cache updated."
+fi
 
 # --- Script Downloads ---
 # Downloads the necessary scripts from the specified GitHub repository.
