@@ -43,6 +43,7 @@ podman run -d --name "$CONTAINER" \
     --network=host \
     --userns=keep-id \
     --pids-limit=-1 \
+    --security-opt label=disable \
     -v "$CONTAINER":/home/"$USER":z \
     registry.fedoraproject.org/fedora-toolbox:latest \
     sleep infinity
