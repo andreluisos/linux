@@ -5,6 +5,7 @@ USERNAME="$USER"
 CONTAINER="fedora-development"
 HOST_XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
 HOST_WAYLAND_DISPLAY=$WAYLAND_DISPLAY
+CONTAINER_XDG_RUNTIME_DIR="/run/user/$(id -u)"
 
 # --- Pre-flight checks and cleanup ---
 
