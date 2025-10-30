@@ -5,7 +5,7 @@ An automated setup for isolated development environments using Podman containers
 ## Quick Start
 
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/ptyxis/setup.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/setup.sh)"
 ```
 
 ## Features
