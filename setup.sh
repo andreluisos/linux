@@ -24,6 +24,19 @@ gsettings set org.gtk.gtk4.Settings.FileChooser sort-directories-first true
 gsettings set org.gnome.nautilus.list-view use-tree-view true
 gsettings set org.gnome.desktop.interface show-battery-percentage true
 gsettings set org.gnome.settings-daemon.plugins.power ambient-enabled false
+gsettings set org.gnome.Ptyxis disable-padding true
+gsettings set org.gnome.Ptyxis use-system-font false
+gsettings set org.gnome.Ptyxis font-name 'JetBrainsMono Nerd Font Medium 11'
+gsettings set org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/$PTYXIS_PROFILE/ palette 'gnome'
+mkdir -p .config/gtk-4.0
+cat << 'EOF' > .config/gtk-4.0/gtk.css
+/*  padding for ptyxis */
+VteTerminal,
+ TerminalScreen,
+ vte-terminal {
+     padding: 0;
+}
+EOF
 echo "GNOME settings applied."
 
 # --- Environment Variable Setup ---
@@ -51,20 +64,17 @@ fc-cache -fv
 # It places them in the user's home directory and makes them executable.
 echo "Downloading utility scripts..."
 mkdir -p "$HOME/.scripts"
-wget -O "$HOME/.scripts/build-ghostty.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/build-ghostty.sh
-wget -O "$HOME/.scripts/create-ghostty-shortcut.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/create-ghostty-shortcut.sh
+wget -O "$HOME/.scripts/create-dev-env-shortcut.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/create-dev-env-shortcut.sh
 wget -O "$HOME/.scripts/setup-dev-environment.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/setup-dev-environment.sh
 
 # Make the downloaded scripts executable
-chmod +x "$HOME/.scripts/build-ghostty.sh"
-chmod +x "$HOME/.scripts/create-ghostty-shortcut.sh"
+chmod +x "$HOME/.scripts/create-dev-env-shortcut.sh"
 chmod +x "$HOME/.scripts/setup-dev-environment.sh"
 echo "Scripts downloaded and made executable."
 
 # --- Script Execution Confirmation ---
 echo "Please confirm which scripts you would like to run."
-read -p "Run build-ghostty.sh? (y/n): " run_build
-read -p "Run create-ghostty-shortcut.sh? (y/n): " run_shortcut
+read -p "Run create-dev-env-shortcut.sh? (y/n): " run_shortcut
 read -p "Run setup-dev-environment.sh? (y/n): " run_dev_env
 
 # --- Running Downloaded Scripts ---
@@ -76,28 +86,13 @@ else
     echo "Skipping setup-dev-environment.sh."
 fi
 
-if [[ "$run_build" =~ ^[Yy]$ ]]; then
-    echo "Executing build-ghostty.sh..."
-    "$HOME/.scripts/build-ghostty.sh"
-else
-    echo "Skipping build-ghostty.sh."
-fi
-
 if [[ "$run_shortcut" =~ ^[Yy]$ ]]; then
-    echo "Executing create-ghostty-shortcut.sh..."
-    "$HOME/.scripts/create-ghostty-shortcut.sh"
+    echo "Executing create-dev-env-shortcut.sh..."
+    "$HOME/.scripts/create-dev-env-shortcut.sh"
 else
-    echo "Skipping create-ghostty-shortcut.sh."
+    echo "Skipping create-dev-env-shortcut.sh."
 fi
 echo "Scripts execution phase complete."
-
-
-# --- Ghostty Configuration ---
-# Creates the necessary directory and downloads the ghostty config file.
-echo "Downloading ghostty configuration..."
-mkdir -p "$HOME/.config/ghostty"
-wget -O "$HOME/.config/ghostty/config" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/ghostty
-echo "Ghostty configuration downloaded."
 
 # --- Command Alias Setup ---
 # Creates aliases in .profile for the downloaded scripts for easy access.
@@ -105,7 +100,6 @@ echo "Creating command aliases in .profile..."
 {
   echo '' # Add a newline for separation
   echo '# --- Custom Command Aliases ---'
-  echo 'alias build-ghostty="$HOME/build-ghostty.sh"'
   echo 'alias set-dev-env="$HOME/setup-dev-environment.sh"'
 } >> "$HOME/.profile"
 echo "Command aliases created."
