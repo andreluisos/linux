@@ -92,8 +92,8 @@ git clone https://github.com/andreluisos/nvim.git .config/nvim
 
 # --- Download Tmux configuration ---
 mkdir -p .config/tmux
-curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux
-curl -fLo .config/tmux/tmux_status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux_status.sh
+curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/ptyxis/main/tmux
+curl -fLo .config/tmux/tmux_status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/ptyxis/main/tmux_status.sh
 chmod +x .config/tmux/tmux_status.sh
 
 # Check if TPM is already installed before cloning
