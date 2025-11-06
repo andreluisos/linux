@@ -1,9 +1,30 @@
 #!/bin/bash
 
-SHORTCUT_NAME="Launch developer environment"
-COMMAND_TO_RUN="ptyxis -x \"podman exec -it -w '/home/andreluis' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY fedora-development /bin/zsh -c 'tmux -u'\" --fullscreen"
-KEY_BINDING="<Super>t"
-# -----------------------------------------
+# --- START: User Prompts ---
+read -p "Enter a name for this shortcut (e.g., 'Launch Dev Project'): " SHORTCUT_NAME
+if [[ -z "$SHORTCUT_NAME" ]]; then
+    echo "No shortcut name entered. Aborting."
+    exit 1
+fi
+
+read -p "Enter the exact name of the podman container to launch: " CONTAINER_NAME
+if [[ -z "$CONTAINER_NAME" ]]; then
+    echo "No container name entered. Aborting."
+    exit 1
+fi
+
+read -p "Enter the key binding (e.g., '<Super>t'): " KEY_BINDING
+if [[ -z "$KEY_BINDING" ]]; then
+    echo "No key binding entered. Aborting."
+    exit 1
+fi
+
+# Get the current user's name to set the working directory inside the container
+CURRENT_USER=$(whoami)
+
+# Dynamically create the command
+COMMAND_TO_RUN="ptyxis -x \"podman exec -it -w '/home/$CURRENT_USER' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY $CONTAINER_NAME /bin/zsh -c 'tmux -u'\" --fullscreen"
+# --- END: User Prompts ---
 
 
 # Base path for all custom keybindings
@@ -14,37 +35,29 @@ KEYBINDING_LIST_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybi
 current_list=$(gsettings get $BASE_GSETTINGS_PATH custom-keybindings)
 
 # --- START: Check for existing shortcut by name ---
-# Extract individual paths from the GSettings list string (e.g., '/.../custom0/').
-# The `grep -o` finds all single-quoted strings, and `tr -d "'"` removes the quotes.
 existing_paths=$(echo "$current_list" | grep -o "'[^']*'" | tr -d "'")
 
 for path in $existing_paths; do
-    # Get the name of the current shortcut in the loop.
-    # The output from gsettings includes single quotes, so we remove them with `tr`.
     existing_name=$(gsettings get "$BASE_GSETTINGS_PATH.custom-keybinding:$path" name | tr -d "'")
 
-    # If a shortcut with the same name is found, print a message and exit.
     if [[ "$existing_name" == "$SHORTCUT_NAME" ]]; then
         echo "Shortcut '$SHORTCUT_NAME' already exists. Aborting script."
-        exit 0 # Exit successfully as no action is needed.
+        echo "If you want to update it, please remove the old one from GNOME Settings first."
+        exit 0
     fi
 done
 # --- END: Check for existing shortcut by name ---
 
-# Find the highest existing index number (e.g., the '1' in 'custom1')
-# This is a reliable way to check if any custom keybindings exist.
+# Find the highest existing index number
 last_index=$(echo "$current_list" | grep -o 'custom[0-9]*' | sed 's/custom//' | sort -n | tail -1)
 
-# Determine the new index and construct the new list of keybindings
+# Determine the new index and construct the new list
 if [[ -z "$last_index" ]]; then
-  # If no custom shortcuts exist, start with index 0 and create a new list.
   new_index=0
   new_list="['$KEYBINDING_LIST_PATH/custom$new_index/']"
   echo "No existing shortcuts found. Creating new list."
 else
-  # If shortcuts exist, increment the last index and append to the list.
   new_index=$((last_index + 1))
-  # This substitution is a safe way to append inside the list's brackets.
   new_list=${current_list/]/", '$KEYBINDING_LIST_PATH/custom$new_index/']"}
   echo "Found existing shortcuts. Appending new one."
 fi
@@ -60,5 +73,4 @@ echo "Configuring shortcut 'custom$new_index'..."
 gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_shortcut_path" name "$SHORTCUT_NAME"
 gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_shortcut_path" command "$COMMAND_TO_RUN"
 gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_shortcut_path" binding "$KEY_BINDING"
-
 echo "Success! Shortcut '$SHORTCUT_NAME' should now be active with binding '$KEY_BINDING'."
