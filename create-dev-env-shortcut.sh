@@ -73,4 +73,5 @@ echo "Configuring shortcut 'custom$new_index'..."
 gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_shortcut_path" name "$SHORTCUT_NAME"
 gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_shortcut_path" command "$COMMAND_TO_RUN"
 gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_shortcut_path" binding "$KEY_BINDING"
+
 echo "Success! Shortcut '$SHORTCUT_NAME' should now be active with binding '$KEY_BINDING'."
