@@ -54,7 +54,7 @@ if [[ "$MODE" == "RECREATE" ]]; then
         read -p "Volume '$CONTAINER' also exists. Do you want to remove it for a fresh install? (y/N) " -r REPLY_VOL
         echo # Move to a new line
         if [[ "$REPLY_VOL" =~ ^[Yy]$ ]]; then
-            echo "Removing volume '$CONTAINER' for a clean slate..."
+            echo "Removing volume '$CONTAINTER' for a clean slate..."
             podman volume rm -f "$CONTAINER"
         else
             echo "Keeping the existing volume '$CONTAINER'."
@@ -72,6 +72,12 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
         podman volume create "$CONTAINER"
     fi
 
+    # --- Ask for additional container arguments ---
+    read -p "Enter any additional arguments for 'podman run' (e.g., '-p 8080:8080 -v /my/projects:/projects'): " ADDITIONAL_ARGS
+    if [[ -n "$ADDITIONAL_ARGS" ]]; then
+        echo "Adding extra arguments: $ADDITIONAL_ARGS"
+    fi
+
     # Run the new container
     podman run -d --name $CONTAINER \
       --userns=keep-id \
@@ -81,6 +87,7 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
       -e WAYLAND_DISPLAY=$HOST_WAYLAND_DISPLAY \
       -e XDG_RUNTIME_DIR=$CONTAINER_XDG_RUNTIME_DIR \
       -v $HOST_XDG_RUNTIME_DIR:$CONTAINER_XDG_RUNTIME_DIR \
+      $ADDITIONAL_ARGS \
       fedora:latest \
       sleep infinity
 fi
