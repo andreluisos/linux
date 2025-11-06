@@ -1,74 +1,103 @@
 #!/bin/bash
 
-# --- Define user and container names for clarity ---
+# --- Define user and host variables ---
 USERNAME="$USER"
-CONTAINER="fedora-development"
 HOST_XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
 HOST_WAYLAND_DISPLAY=$WAYLAND_DISPLAY
 CONTAINER_XDG_RUNTIME_DIR="/run/user/$(id -u)"
 
-# --- Pre-flight checks and cleanup ---
+# --- Get container name from user ---
+read -p "Enter the name for the development container (e.g., 'fedora-dev'): " CONTAINER
+if [[ -z "$CONTAINER" ]]; then
+    echo "No name entered. Aborting setup."
+    exit 1
+fi
 
-# Check if the container exists. Its removal is mandatory to proceed.
+# --- Check container status and determine action ---
+MODE=""
 if podman container exists "$CONTAINER"; then
-    read -p "Container '$CONTAINER' already exists. It must be removed to proceed. Continue? (y/N) " -r
+    read -p "Container '$CONTAINER' already exists.
+(U)pdate it (run setup inside), (R)ecreate it (delete and start over), or (S)kip? [U/r/s] " -r REPLY
     echo # Move to a new line
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo "Removing container '$CONTAINER'..."
-        podman rm -f "$CONTAINER"
-    else
-        echo "Setup aborted by user. The existing container was not removed."
-        exit 1
+    case "$REPLY" in
+        [Rr]*)
+            MODE="RECREATE"
+            ;;
+        [Ss]*)
+            echo "Skipping. No changes made to '$CONTAINER'."
+            exit 0
+            ;;
+        *)
+            MODE="UPDATE"
+            echo "Will update '$CONTAINER'..."
+            ;;
+    esac
+else
+    read -p "Container '$CONTAINER' does not exist. Create it? [Y/n] " -r REPLY
+    echo # Move to a new line
+    if [[ "$REPLY" =~ ^[Nn]$ ]]; then
+        echo "Aborting setup."
+        exit 0
+    fi
+    MODE="CREATE"
+    echo "Will create '$CONTAINER'..."
+fi
+
+
+# --- Mode: RECREATE ---
+# This block runs only if the user chooses to recreate
+if [[ "$MODE" == "RECREATE" ]]; then
+    echo "Removing container '$CONTAINER'..."
+    podman rm -f "$CONTAINER"
+
+    if podman volume exists "$CONTAINER"; then
+        read -p "Volume '$CONTAINER' also exists. Do you want to remove it for a fresh install? (y/N) " -r REPLY_VOL
+        echo # Move to a new line
+        if [[ "$REPLY_VOL" =~ ^[Yy]$ ]]; then
+            echo "Removing volume '$CONTAINER' for a clean slate..."
+            podman volume rm -f "$CONTAINER"
+        else
+            echo "Keeping the existing volume '$CONTAINER'."
+        fi
     fi
 fi
 
-# Check if the volume exists and ask if the user wants a fresh installation.
-if podman volume exists "$CONTAINER"; then
-    read -p "Volume '$CONTAINER' already exists. Do you want to remove it for a fresh install? (y/N) " -r
-    echo # Move to a new line
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo "Removing volume '$CONTAINER' for a clean slate..."
-        podman volume rm -f "$CONTAINER"
-    else
-        echo "Keeping the existing volume '$CONTAINER'."
+# --- Mode: CREATE or RECREATE ---
+# This block runs for a new container or a recreated one
+if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
+    echo "Creating new volume and container..."
+
+    # Create the volume only if it doesn't exist
+    if ! podman volume exists "$CONTAINER"; then
+        podman volume create "$CONTAINER"
     fi
+
+    # Run the new container
+    podman run -d --name $CONTAINER \
+      --userns=keep-id \
+      --group-add keep-groups \
+      --security-opt label=disable \
+      -e WAYLAND_DISPLAY=$HOST_WAYLAND_DISPLAY \
+      -e XDG_RUNTIME_DIR=$CONTAINER_XDG_RUNTIME_DIR \
+      -v $HOST_XDG_RUNTIME_DIR:$CONTAINER_XDG_RUNTIME_DIR \
+      fedora:latest \
+      sleep infinity
 fi
 
-# --- Create new environment ---
-echo "Creating new volume and container..."
-
-# Create the volume only if it doesn't exist (i.e., it's a first run or was just removed).
-if ! podman volume exists "$CONTAINER"; then
-    podman volume create "$CONTAINER"
-fi
-
-podman run -d --name $CONTAINER \
-  --userns=keep-id \
-  --group-add keep-groups \
-  --security-opt label=disable \
-  -e WAYLAND_DISPLAY=$HOST_WAYLAND_DISPLAY \
-  -e XDG_RUNTIME_DIR=$CONTAINER_XDG_RUNTIME_DIR \
-  -v $HOST_XDG_RUNTIME_DIR:$CONTAINER_XDG_RUNTIME_DIR \
-  fedora:latest \
-  sleep infinity
+# --- Mode: CREATE, RECREATE, or UPDATE ---
+# This block runs in all active modes to provision or update the container
 
 # --- Run setup commands as root ---
-echo "Running setup as root..."
-
-# Update system
+echo "Running setup as root in '$CONTAINER'..."
 podman exec -u root "$CONTAINER" dnf update -y
+# Added rustup to the install list
+podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata lm_sensors keychain fd fzf luarocks wget procps-ng openssl-devel @development-tools rustup
 
-# Install all necessary dependencies
-podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata lm_sensors keychain fd fzf luarocks wget procps-ng openssl-devel @development-tools
-
-# Install locale information and set it system-wide
 podman exec -u root "$CONTAINER" sh -c 'dnf install -y glibc-langpack-en && echo "LANG=en_US.UTF-8" > /etc/locale.conf'
-
-# Set the timezone to São Paulo / Brazil
 podman exec -u root "$CONTAINER" ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
 
 # Install JetBrains Mono Nerd Font
-echo "Installing Nerd Fonts..."
+echo "Installing Nerd Fonts in '$CONTAINER'..."
 podman exec -u root "$CONTAINER" sh -c '
 curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
 mkdir -p /usr/local/share/fonts/JetBrainsMonoNF
@@ -83,15 +112,75 @@ podman exec -u root "$CONTAINER" cp -rT /etc/skel/ "/home/$USERNAME/"
 podman exec -u root "$CONTAINER" chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/"
 podman exec -u root "$CONTAINER" usermod -d "/home/$USERNAME" -s /usr/bin/zsh "$USERNAME"
 
+
+# --- SSH Key Injection ---
+echo "Configuring SSH keys..."
+# Ensure .ssh directory exists and has correct root ownership for the user
+podman exec -u root "$CONTAINER" sh -c "mkdir -p /home/$USERNAME/.ssh && chown $USERNAME:$USERNAME /home/$USERNAME/.ssh"
+
+# Find private keys on the host
+PRIVATE_KEYS=()
+HOST_SSH_DIR="$HOME/.ssh"
+if [ -d "$HOST_SSH_DIR" ]; then
+    while IFS= read -r file_path; do
+        PRIVATE_KEYS+=("$(basename "$file_path")")
+    done < <(find "$HOST_SSH_DIR" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts" ! -name "config")
+fi
+
+SELECTED_KEYS=()
+if [ ${#PRIVATE_KEYS[@]} -gt 0 ]; then
+    echo "Found the following private SSH keys in $HOST_SSH_DIR:"
+    for i in "${!PRIVATE_KEYS[@]}"; do
+        echo "  $((i+1))) ${PRIVATE_KEYS[$i]}"
+    done
+    
+    read -p "Which keys do you want to copy to the container? (e.g., '1 3', 'all', or 'none'): " -r REPLY_KEYS
+    
+    if [[ "$REPLY_KEYS" =~ ^[Aa][Ll][Ll]$ ]]; then
+        SELECTED_KEYS=("${PRIVATE_KEYS[@]}")
+    elif [[ "$REPLY_KEYS" != "none" && -n "$REPLY_KEYS" ]]; then
+        for index in $REPLY_KEYS; do
+            if [[ "$index" -gt 0 && "$index" -le ${#PRIVATE_KEYS[@]} ]]; then
+                SELECTED_KEYS+=("${PRIVATE_KEYS[$((index-1))]}")
+            fi
+        done
+    fi
+fi
+
+# This variable will be passed into the container
+CHMOD_COMMANDS=""
+if [ ${#SELECTED_KEYS[@]} -gt 0 ]; then
+    echo "Copying selected keys to '$CONTAINER'..."
+    for key in "${SELECTED_KEYS[@]}"; do
+        # Copy private key
+        if [ -f "$HOST_SSH_DIR/$key" ]; then
+            podman cp "$HOST_SSH_DIR/$key" "$CONTAINER:/home/$USERNAME/.ssh/$key"
+            CHMOD_COMMANDS+="chmod 600 .ssh/$key; "
+        fi
+        # Copy public key if it exists
+        if [ -f "$HOST_SSH_DIR/$key.pub" ]; then
+            podman cp "$HOST_SSH_DIR/$key.pub" "$CONTAINER:/home/$USERNAME/.ssh/$key.pub"
+            CHMOD_COMMANDS+="chmod 644 .ssh/$key.pub; "
+        fi
+    done
+else
+    echo "Skipping SSH key setup."
+fi
+export CHMOD_COMMANDS # Export for podman exec
+
+
 # --- Run setup commands as the user ---
-echo "Configuring user environment..."
-# We use zsh -c '...' here so that sourcing sdkman-init.sh works correctly
-podman exec -u "$USERNAME" -w "/home/$USERNAME" "$CONTAINER" /bin/zsh -c '
+echo "Configuring user environment in '$CONTAINER'..."
+# We pass CHMOD_COMMANDS as an environment variable to be executed inside
+podman exec -u "$USERNAME" -w "/home/$USERNAME" --env CHMOD_COMMANDS "$CONTAINER" /bin/zsh -c '
 # --- Create standard directories first ---
-mkdir -p .local/{share,state,bin} .config
+mkdir -p .local/{share,state,bin} .config .ssh
+chmod 700 .ssh
+
+# --- Set SSH key permissions ---
+eval $CHMOD_COMMANDS
 
 # --- Clone Neovim configuration ---
-# This removes the old config to ensure it is always the latest version from git
 rm -rf .config/nvim
 git clone https://github.com/andreluisos/nvim.git .config/nvim
 
@@ -101,65 +190,45 @@ curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/l
 curl -fLo .config/tmux/tmux_status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux_status.sh
 chmod +x .config/tmux/tmux_status.sh
 
-# Check if TPM is already installed before cloning
 if [ ! -d ".tmux/plugins/tpm" ]; then
     git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm
 fi
 
 # --- Force reinstallation of Oh My Zsh ---
-echo "Preparing for Oh My Zsh reinstallation..."
-# Remove existing directory to ensure a clean install
-if [ -d "$HOME/.oh-my-zsh" ]; then
-    rm -rf "$HOME/.oh-my-zsh"
-fi
-# Remove existing .zshrc so the installer creates a fresh one
-if [ -f "$HOME/.zshrc" ]; then
-    rm -f "$HOME/.zshrc"
-fi
-echo "Installing Oh My Zsh..."
+if [ -d "$HOME/.oh-my-zsh" ]; then rm -rf "$HOME/.oh-my-zsh"; fi
+if [ -f "$HOME/.zshrc" ]; then rm -f "$HOME/.zshrc"; fi
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
 # --- Install Zsh plugins ---
 ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
-# Ensure the custom plugins directory exists before cloning into it.
 mkdir -p "${ZSH_CUSTOM}/plugins"
-
-# Clone all plugins (will be a fresh clone since parent dir was removed)
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM}/plugins/zsh-autosuggestions
 git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM}/plugins/zsh-completions
 git clone https://github.com/zsh-users/zsh-history-substring-search ${ZSH_CUSTOM}/plugins/zsh-history-substring-search
 
 # --- Configure .zshrc ---
-# These sed commands are safe to re-run on the fresh .zshrc file
 sed -i "s/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions zsh-history-substring-search)/g" .zshrc
-sed -i "s/# export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/export PATH=\$HOME\/bin:\/usr\/local\/bin:\$PATH/g" .zshrc
-# We can add checks to prevent adding duplicate lines to .zshrc
+# Updated PATH command to include .local/bin and .cargo/bin
+sed -i "s|# export PATH=\$HOME/bin:\$HOME/\.local/bin:/usr/local/bin:\$PATH|export PATH=\$HOME/bin:\$HOME/\.local/bin:/usr/local/bin:\$HOME/\.cargo/bin:\$PATH|g" .zshrc
 grep -qxF "autoload -U compinit && compinit" .zshrc || echo "autoload -U compinit && compinit" >> .zshrc
 grep -qF "keychain --eval" .zshrc || echo "\\n# Load SSH keys\\neval \$(keychain --eval --quiet \$(grep -srlF -e \"PRIVATE KEY\" ~/.ssh))" >> .zshrc
-mkdir -p .ssh
 
 # --- Force reinstallation of SDKMAN! ---
-echo "Preparing for SDKMAN! reinstallation..."
-# Remove existing directory to ensure a clean install
-if [ -d "$HOME/.sdkman" ]; then
-    rm -rf "$HOME/.sdkman"
-fi
-echo "Installing SDKMAN!..."
+if [ -d "$HOME/.sdkman" ]; then rm -rf "$HOME/.sdkman"; fi
 curl -s "https://get.sdkman.io" | bash
-
-# Source SDKMAN! to use it immediately in this script
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 
 echo "Installing latest GraalVM CE..."
-# Find the latest identifier for GraalVM Community Edition
 GRAALVM_IDENTIFIER=$(sdk list java | grep "graalce" | head -n 1 | cut -d"|" -f6 | tr -d " ")
-# This command is safe; SDKMAN will not reinstall if it already exists
 sdk install java $GRAALVM_IDENTIFIER
 
 echo "Installing latest Gradle..."
-# Let SDKMAN install the latest version automatically, which is more robust
 sdk install gradle
+
+# --- Install Rust ---
+echo "Installing Rust..."
+rustup-init -y
 '
 
-echo "Dev environment setup complete!"
+echo "Dev environment setup complete for '$CONTAINER'!"
