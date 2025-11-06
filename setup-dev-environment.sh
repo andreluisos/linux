@@ -77,6 +77,7 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
       --userns=keep-id \
       --group-add keep-groups \
       --security-opt label=disable \
+      -v $CONTAINER:/home/$USERNAME \
       -e WAYLAND_DISPLAY=$HOST_WAYLAND_DISPLAY \
       -e XDG_RUNTIME_DIR=$CONTAINER_XDG_RUNTIME_DIR \
       -v $HOST_XDG_RUNTIME_DIR:$CONTAINER_XDG_RUNTIME_DIR \
