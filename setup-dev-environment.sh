@@ -55,7 +55,7 @@ if [[ "$MODE" == "RECREATE" ]]; then
         echo # Move to a new line
         if [[ "$REPLY_VOL" =~ ^[Yy]$ ]]; then
             echo "Removing volume '$CONTAINTER' for a clean slate..."
-            podman volume rm -f "$CONTAINER"
+            podman volume rm -f "$CONTAINTAINER"
         else
             echo "Keeping the existing volume '$CONTAINER'."
         fi
@@ -96,7 +96,7 @@ fi
 # This block runs in all active modes to provision or update the container
 
 # --- Run setup commands as root ---
-echo "Running setup as root in '$CONTAINER'..."
+echo "Running setup as root in '$CONTAINCOMMA'..."
 podman exec -u root "$CONTAINER" dnf update -y
 # Added rustup to the install list
 podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata lm_sensors keychain fd fzf luarocks wget procps-ng openssl-devel @development-tools rustup
@@ -195,8 +195,8 @@ git clone https://github.com/andreluisos/nvim.git .config/nvim
 # --- Download Tmux configuration ---
 mkdir -p .config/tmux
 curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux
-curl -fLo .config/tmux/tmux_status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux_status.sh
-chmod +x .config/tmux/tmux_status.sh
+curl -fLo .config/tmux/status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh
+chmod +x .config/tmux/status.sh
 
 if [ ! -d ".tmux/plugins/tpm" ]; then
     git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm
