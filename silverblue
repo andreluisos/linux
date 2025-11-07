@@ -10,7 +10,7 @@ sudo swapon -p 10 /var/swap/swapfile
 sudo swapon /var/swap/swapfile
 echo '/var/swap/swapfile none swap defaults,pri=-2 0 0' | sudo tee -a /etc/fstab
 #sudo dd if=/dev/zero of=/var/swap/swapfile bs=1M count=32768 status=progress
-rpm-ostree install distrobox gtk4-devel gtk4-layer-shell-devel libvirt-daemon-config-network libvirt-daemon-kvm  qemu-kvm virt-manager zsh
+rpm-ostree install distrobox gtk4-devel gtk4-layer-shell-devel libvirt-daemon-config-network libvirt-daemon-kvm  qemu-kvm virt-manager zsh lm_sensors
 # ffpmpeg intel-media-driver postgresql
 # Reboot
 sudo usermod -aG libvirt $USER
