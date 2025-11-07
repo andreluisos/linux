@@ -1,5 +1,20 @@
 #!/bin/bash
 
+# --- START: Get Terminal Choice ---
+TERMINAL_CHOICE=$1
+
+if [[ -z "$TERMINAL_CHOICE" ]]; then
+    read -p "Choose terminal: (1) ptyxis (2) wezterm: " term_choice
+    if [[ "$term_choice" == "2" ]]; then
+        TERMINAL_CHOICE="wezterm"
+    else
+        TERMINAL_CHOICE="ptyxis" # Default
+    fi
+fi
+echo "Configuring shortcut for: $TERMINAL_CHOICE"
+# --- END: Get Terminal Choice ---
+
+
 # --- START: User Prompts ---
 read -p "Enter a name for this shortcut (e.g., 'Launch Dev Project'): " SHORTCUT_NAME
 if [[ -z "$SHORTCUT_NAME" ]]; then
@@ -22,8 +37,16 @@ fi
 # Get the current user's name to set the working directory inside the container
 CURRENT_USER=$(whoami)
 
-# Dynamically create the command
-COMMAND_TO_RUN="ptyxis -x \"podman exec -it -w '/home/$CURRENT_USER' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY $CONTAINER_NAME /bin/zsh -c 'tmux -u'\" --fullscreen"
+# Dynamically create the command based on terminal choice
+if [[ "$TERMINAL_CHOICE" == "wezterm" ]]; then
+    # For Wezterm, just launch zsh (no tmux)
+    PODMAN_CMD="podman exec -it -w '/home/$CURRENT_USER' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY $CONTAINER_NAME /bin/zsh"
+    COMMAND_TO_RUN="flatpak run org.wezfurlong.wezterm start -- $PODMAN_CMD"
+else
+    # For Ptyxis, launch zsh and run tmux
+    PODMAN_CMD="podman exec -it -w '/home/$CURRENT_USER' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY $CONTAINER_NAME /bin/zsh -c 'tmux -u'"
+    COMMAND_TO_RUN="ptyxis -x \"$PODMAN_CMD\" --fullscreen"
+fi
 # --- END: User Prompts ---
 
 
@@ -70,6 +93,7 @@ echo "Setting keybinding list..."
 gsettings set $BASE_GSETTINGS_PATH custom-keybindings "$new_list"
 
 echo "Configuring shortcut 'custom$new_index'..."
+echo "Command: $COMMAND_TO_RUN"
 gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_shortcut_path" name "$SHORTCUT_NAME"
 gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_shortcut_path" command "$COMMAND_TO_RUN"
 gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_shortcut_path" binding "$KEY_BINDING"
