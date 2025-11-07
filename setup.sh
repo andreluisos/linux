@@ -1,123 +1,242 @@
 #!/bin/bash
 
-# This script automates the setup of a Linux development environment.
-# It configures GNOME settings, sets up environment variables,
-# downloads utility scripts, asks for confirmation, runs them, and creates aliases.
+# --- Define user and host variables ---
+USERNAME="$USER"
+HOST_XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
+HOST_WAYLAND_DISPLAY=$WAYLAND_DISPLAY
+CONTAINER_XDG_RUNTIME_DIR="/run/user/$(id -u)"
 
-echo "Starting environment setup..."
+# --- Get container name from user ---
+read -p "Enter the name for the development container (e.g., 'fedora-dev'): " CONTAINER
+if [[ -z "$CONTAINER" ]]; then
+    echo "No name entered. Aborting setup."
+    exit 1
+fi
 
-# --- GNOME Desktop Configuration ---
-echo "Configuring GNOME desktop settings..."
-gsettings set org.gnome.desktop.interface clock-show-date true
-gsettings set org.gnome.desktop.interface clock-show-seconds true
-gsettings set org.gnome.desktop.interface clock-show-weekday true
-gsettings set org.gnome.desktop.wm.preferences button-layout ":minimize,maximize,close"
-gsettings set org.gnome.desktop.interface gtk-enable-primary-paste false
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 "['<Super>1']"
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-2 "['<Super>2']"
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-3 "['<Super>3']"
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-4 "['<Super>4']"
-gsettings set org.gnome.desktop.datetime automatic-timezone true
-gsettings set org.gnome.desktop.interface clock-format '24h'
-gsettings set org.gnome.nautilus.preferences default-folder-viewer 'list-view'
-gsettings set org.gtk.gtk4.Settings.FileChooser sort-directories-first true
-gsettings set org.gnome.nautilus.list-view use-tree-view true
-gsettings set org.gnome.desktop.interface show-battery-percentage true
-gsettings set org.gnome.settings-daemon.plugins.power ambient-enabled false
-gsettings set org.gnome.Ptyxis disable-padding true
-gsettings set org.gnome.Ptyxis use-system-font false
-gsettings set org.gnome.Ptyxis font-name 'JetBrainsMono Nerd Font Medium 11'
-gsettings set org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/$PTYXIS_PROFILE/ palette 'gnome'
-mkdir -p .config/gtk-4.0
-cat << 'EOF' > .config/gtk-4.0/gtk.css
-/*  padding for ptyxis */
-VteTerminal,
- TerminalScreen,
- vte-terminal {
-     padding: 0;
-}
-EOF
-echo "GNOME settings applied."
+# --- Check container status and determine action ---
+MODE=""
+if podman container exists "$CONTAINER"; then
+    read -p "Container '$CONTAINER' already exists.
+(U)pdate it (run setup inside), (R)ecreate it (delete and start over), or (S)kip? [U/r/s] " -r REPLY
+    echo # Move to a new line
+    case "$REPLY" in
+        [Rr]*)
+            MODE="RECREATE"
+            ;;
+        [Ss]*)
+            echo "Skipping. No changes made to '$CONTAINER'."
+            exit 0
+            ;;
+        *)
+            MODE="UPDATE"
+            echo "Will update '$CONTAINER'..."
+            ;;
+    esac
+else
+    read -p "Container '$CONTAINER' does not exist. Create it? [Y/n] " -r REPLY
+    echo # Move to a new line
+    if [[ "$REPLY" =~ ^[Nn]$ ]]; then
+        echo "Aborting setup."
+        exit 0
+    fi
+    MODE="CREATE"
+    echo "Will create '$CONTAINER'..."
+fi
 
-# --- Environment Variable Setup ---
-# Appends environment variables to the user's .profile file.
-# This ensures they are loaded on every login.
-echo "Setting up environment variables in .profile..."
-{
-  echo '' # Add a newline for separation
-  echo '# --- Custom Environment Variables ---'
-  echo 'export EDITOR="vi"'
-} >> "$HOME/.profile"
-echo "Environment variables added."
+
+# --- Mode: RECREATE ---
+# This block runs only if the user chooses to recreate
+if [[ "$MODE" == "RECREATE" ]]; then
+    echo "Removing container '$CONTAINER'..."
+    podman rm -f "$CONTAINER"
+
+    if podman volume exists "$CONTAINER"; then
+        read -p "Volume '$CONTAINER' also exists. Do you want to remove it for a fresh install? (y/N) " -r REPLY_VOL
+        echo # Move to a new line
+        if [[ "$REPLY_VOL" =~ ^[Yy]$ ]]; then
+            echo "Removing volume '$CONTAINTER' for a clean slate..."
+            podman volume rm -f "$CONTAINTAINER"
+        else
+            echo "Keeping the existing volume '$CONTAINER'."
+        fi
+    fi
+fi
+
+# --- Mode: CREATE or RECREATE ---
+# This block runs for a new container or a recreated one
+if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
+    echo "Creating new volume and container..."
+
+    # Create the volume only if it doesn't exist
+    if ! podman volume exists "$CONTAINER"; then
+        podman volume create "$CONTAINER"
+    fi
+
+    # --- Ask for additional container arguments ---
+    read -p "Enter any additional arguments for 'podman run' (e.g., '-p 8080:8080 -v /my/projects:/projects'): " ADDITIONAL_ARGS
+    if [[ -n "$ADDITIONAL_ARGS" ]]; then
+        echo "Adding extra arguments: $ADDITIONAL_ARGS"
+    fi
+
+    # Run the new container
+    podman run -d --name $CONTAINER \
+      --userns=keep-id \
+      --group-add keep-groups \
+      --security-opt label=disable \
+      -v $CONTAINER:/home/$USERNAME \
+      -e WAYLAND_DISPLAY=$HOST_WAYLAND_DISPLAY \
+      -e XDG_RUNTIME_DIR=$CONTAINER_XDG_RUNTIME_DIR \
+      -v $HOST_XDG_RUNTIME_DIR:$CONTAINER_XDG_RUNTIME_DIR \
+      $ADDITIONAL_ARGS \
+      fedora:latest \
+      sleep infinity
+fi
+
+# --- Mode: CREATE, RECREATE, or UPDATE ---
+# This block runs in all active modes to provision or update the container
+
+# --- Run setup commands as root ---
+echo "Running setup as root in '$CONTAINCOMMA'..."
+podman exec -u root "$CONTAINER" dnf update -y
+# Added rustup to the install list
+podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata lm_sensors keychain fd fzf luarocks wget procps-ng openssl-devel @development-tools rustup
+
+podman exec -u root "$CONTAINER" sh -c 'dnf install -y glibc-langpack-en && echo "LANG=en_US.UTF-8" > /etc/locale.conf'
+podman exec -u root "$CONTAINER" ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
 
 # Install JetBrains Mono Nerd Font
-FONT_NAME="JetBrainsMono Nerd Font"
-FONT_DIR="$HOME/.local/share/fonts/JetBrainsMonoNF"
+echo "Installing Nerd Fonts in '$CONTAINER'..."
+podman exec -u root "$CONTAINER" sh -c '
+curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
+mkdir -p /usr/local/share/fonts/JetBrainsMonoNF
+unzip /tmp/fonts.zip -d /usr/local/share/fonts/JetBrainsMonoNF
+rm /tmp/fonts.zip
+fc-cache -fv
+'
 
-echo "Checking for '$FONT_NAME'..."
+# Configure user permissions and home directory
+podman exec -u root "$CONTAINER" sh -c "echo '$USERNAME ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/$USERNAME"
+podman exec -u root "$CONTAINER" cp -rT /etc/skel/ "/home/$USERNAME/"
+podman exec -u root "$CONTAINER" chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/"
+podman exec -u root "$CONTAINER" usermod -d "/home/$USERNAME" -s /usr/bin/zsh "$USERNAME"
 
-# Use fc-list to check if the font is already registered by the system
-if fc-list | grep -q "$FONT_NAME"; then
-    echo "'$FONT_NAME' is already installed. Skipping download and installation."
-else
-    echo "'$FONT_NAME' not found. Installing now..."
-    mkdir -p "$HOME/.local/share/fonts"
-    curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
-    mkdir -p "$FONT_DIR"
-    unzip /tmp/fonts.zip -d "$FONT_DIR"
-    rm /tmp/fonts.zip
-    fc-cache -fv
-    echo "Nerd Fonts installed and cache updated."
+
+# --- SSH Key Injection ---
+echo "Configuring SSH keys..."
+# Ensure .ssh directory exists and has correct root ownership for the user
+podman exec -u root "$CONTAINER" sh -c "mkdir -p /home/$USERNAME/.ssh && chown $USERNAME:$USERNAME /home/$USERNAME/.ssh"
+
+# Find private keys on the host
+PRIVATE_KEYS=()
+HOST_SSH_DIR="$HOME/.ssh"
+if [ -d "$HOST_SSH_DIR" ]; then
+    while IFS= read -r file_path; do
+        PRIVATE_KEYS+=("$(basename "$file_path")")
+    done < <(find "$HOST_SSH_DIR" -maxdepth 1 -type f ! -name "*.pub" ! -name "known_hosts" ! -name "config")
 fi
 
-# --- Script Downloads ---
-# Downloads the necessary scripts from the specified GitHub repository.
-# It places them in the user's home directory and makes them executable.
-echo "Downloading utility scripts..."
-mkdir -p "$HOME/.scripts"
-wget -O "$HOME/.scripts/create-dev-env-shortcut.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/create-dev-env-shortcut.sh
-wget -O "$HOME/.scripts/setup-dev-environment.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/setup-dev-environment.sh
-
-# Make the downloaded scripts executable
-chmod +x "$HOME/.scripts/create-dev-env-shortcut.sh"
-chmod +x "$HOME/.scripts/setup-dev-environment.sh"
-echo "Scripts downloaded and made executable."
-
-# --- Script Execution Confirmation ---
-echo "Please confirm which scripts you would like to run."
-read -p "Run create-dev-env-shortcut.sh? (y/n): " run_shortcut
-read -p "Run setup-dev-environment.sh? (y/n): " run_dev_env
-
-# --- Running Downloaded Scripts ---
-echo "Running selected setup scripts..."
-if [[ "$run_dev_env" =~ ^[Yy]$ ]]; then
-    echo "Executing setup-dev-environment.sh..."
-    "$HOME/.scripts/setup-dev-environment.sh"
-else
-    echo "Skipping setup-dev-environment.sh."
+SELECTED_KEYS=()
+if [ ${#PRIVATE_KEYS[@]} -gt 0 ]; then
+    echo "Found the following private SSH keys in $HOST_SSH_DIR:"
+    for i in "${!PRIVATE_KEYS[@]}"; do
+        echo "  $((i+1))) ${PRIVATE_KEYS[$i]}"
+    done
+    
+    read -p "Which keys do you want to copy to the container? (e.g., '1 3', 'all', or 'none'): " -r REPLY_KEYS
+    
+    if [[ "$REPLY_KEYS" =~ ^[Aa][Ll][Ll]$ ]]; then
+        SELECTED_KEYS=("${PRIVATE_KEYS[@]}")
+    elif [[ "$REPLY_KEYS" != "none" && -n "$REPLY_KEYS" ]]; then
+        for index in $REPLY_KEYS; do
+            if [[ "$index" -gt 0 && "$index" -le ${#PRIVATE_KEYS[@]} ]]; then
+                SELECTED_KEYS+=("${PRIVATE_KEYS[$((index-1))]}")
+            fi
+        done
+    fi
 fi
 
-if [[ "$run_shortcut" =~ ^[Yy]$ ]]; then
-    echo "Executing create-dev-env-shortcut.sh..."
-    "$HOME/.scripts/create-dev-env-shortcut.sh"
+# This variable will be passed into the container
+CHMOD_COMMANDS=""
+if [ ${#SELECTED_KEYS[@]} -gt 0 ]; then
+    echo "Copying selected keys to '$CONTAINER'..."
+    for key in "${SELECTED_KEYS[@]}"; do
+        # Copy private key
+        if [ -f "$HOST_SSH_DIR/$key" ]; then
+            podman cp "$HOST_SSH_DIR/$key" "$CONTAINER:/home/$USERNAME/.ssh/$key"
+            CHMOD_COMMANDS+="chmod 600 .ssh/$key; "
+        fi
+        # Copy public key if it exists
+        if [ -f "$HOST_SSH_DIR/$key.pub" ]; then
+            podman cp "$HOST_SSH_DIR/$key.pub" "$CONTAINER:/home/$USERNAME/.ssh/$key.pub"
+            CHMOD_COMMANDS+="chmod 644 .ssh/$key.pub; "
+        fi
+    done
 else
-    echo "Skipping create-dev-env-shortcut.sh."
+    echo "Skipping SSH key setup."
 fi
-echo "Scripts execution phase complete."
+export CHMOD_COMMANDS # Export for podman exec
 
-# --- Command Alias Setup ---
-# Creates aliases in .profile for the downloaded scripts for easy access.
-echo "Creating command aliases in .profile..."
-{
-  echo '' # Add a newline for separation
-  echo '# --- Custom Command Aliases ---'
-  echo 'alias set-dev-env="$HOME/setup-dev-environment.sh"'
-} >> "$HOME/.profile"
-echo "Command aliases created."
 
-# --- Source the profile to apply changes ---
-echo "Applying changes to the current session..."
-# shellcheck source=/dev/null
-source "$HOME/.profile"
+# --- Run setup commands as the user ---
+echo "Configuring user environment in '$CONTAINER'..."
+# We pass CHMOD_COMMANDS as an environment variable to be executed inside
+podman exec -u "$USERNAME" -w "/home/$USERNAME" --env CHMOD_COMMANDS "$CONTAINER" /bin/zsh -c '
+# --- Create standard directories first ---
+mkdir -p .local/{share,state,bin} .config .ssh
+chmod 700 .ssh
 
-echo "Setup complete! Your profile has been updated and sourced. For all changes to take full effect, you may need to log out and log back in."
+# --- Set SSH key permissions ---
+eval $CHMOD_COMMANDS
+
+# --- Clone Neovim configuration ---
+rm -rf .config/nvim
+git clone https://github.com/andreluisos/nvim.git .config/nvim
+
+# --- Download Tmux configuration ---
+mkdir -p .config/tmux
+curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux
+curl -fLo .config/tmux/status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh
+chmod +x .config/tmux/status.sh
+
+if [ ! -d ".tmux/plugins/tpm" ]; then
+    git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm
+fi
+
+# --- Force reinstallation of Oh My Zsh ---
+if [ -d "$HOME/.oh-my-zsh" ]; then rm -rf "$HOME/.oh-my-zsh"; fi
+if [ -f "$HOME/.zshrc" ]; then rm -f "$HOME/.zshrc"; fi
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+# --- Install Zsh plugins ---
+ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
+mkdir -p "${ZSH_CUSTOM}/plugins"
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting
+git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM}/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM}/plugins/zsh-completions
+git clone https://github.com/zsh-users/zsh-history-substring-search ${ZSH_CUSTOM}/plugins/zsh-history-substring-search
+
+# --- Configure .zshrc ---
+sed -i "s/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions zsh-history-substring-search)/g" .zshrc
+# Updated PATH command to include .local/bin and .cargo/bin
+sed -i "s|# export PATH=\$HOME/bin:\$HOME/\.local/bin:/usr/local/bin:\$PATH|export PATH=\$HOME/bin:\$HOME/\.local/bin:/usr/local/bin:\$HOME/\.cargo/bin:\$PATH|g" .zshrc
+grep -qxF "autoload -U compinit && compinit" .zshrc || echo "autoload -U compinit && compinit" >> .zshrc
+grep -qF "keychain --eval" .zshrc || echo "\\n# Load SSH keys\\neval \$(keychain --eval --quiet \$(grep -srlF -e \"PRIVATE KEY\" ~/.ssh))" >> .zshrc
+
+# --- Force reinstallation of SDKMAN! ---
+if [ -d "$HOME/.sdkman" ]; then rm -rf "$HOME/.sdkman"; fi
+curl -s "https://get.sdkman.io" | bash
+source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+echo "Installing latest GraalVM CE..."
+GRAALVM_IDENTIFIER=$(sdk list java | grep "graalce" | head -n 1 | cut -d"|" -f6 | tr -d " ")
+sdk install java $GRAALVM_IDENTIFIER
+
+echo "Installing latest Gradle..."
+sdk install gradle
+
+# --- Install Rust ---
+echo "Installing Rust..."
+rustup-init -y
+'
+
+echo "Dev environment setup complete for '$CONTAINER'!"
