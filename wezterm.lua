@@ -18,6 +18,8 @@ config.window_padding = {
 config.window_decorations = 'RESIZE'
 config.tab_bar_at_bottom = true
 config.use_fancy_tab_bar = false
+config.default_domain = 'local'
+config.max_fps = 120
 
 -- ⚙️ FUNCTIONALITY
 config.hide_tab_bar_if_only_one_tab = false
