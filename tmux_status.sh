@@ -1,59 +1,70 @@
 #!/bin/bash
-# A script for Fedora 42+ to display CPU usage, CPU temp, RAM usage, swap usage, and battery percentage.
-# Requires lm_sensors
+# Optimized status script for Flatpak WezTerm
 
-# --- CPU Usage ---
-cpu_usage=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
+# --- CPU Usage (using /proc/stat) ---
+cpu_usage=$(awk '{u=$2+$4; t=$2+$4+$5; if (NR==1){u1=u; t1=t;} else print ($2+$4-u1) * 100 / (t-t1) }' \
+  <(grep 'cpu ' /proc/stat) <(sleep 0.1; grep 'cpu ' /proc/stat))
+
+if [ -z "$cpu_usage" ]; then
+    cpu_usage="0"
+fi
 cpu_info=$(printf "󰍛 %.0f%%" "$cpu_usage")
 
 # --- CPU Temperature ---
 temp_info=""
-if command -v sensors >/dev/null 2>&1; then
-    # Try to get CPU package temperature first
-    temp=$(sensors | grep -i "package id 0" | grep -o "+[0-9]*\.[0-9]*" | head -n1 | sed 's/+//')
-    if [ -z "$temp" ]; then
-        # Fallback to CPU temp or core temp
-        temp=$(sensors | grep -E "(CPU|Tctl|Tccd)" | grep -o "+[0-9]*\.[0-9]*" | head -n1 | sed 's/+//')
-    fi
+if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
+    temp=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
     if [ -n "$temp" ]; then
-        temp_info="󰔏 ${temp}°C"
+        temp_c=$((temp / 1000))
+        temp_info="󰔏 ${temp_c}°C"
     fi
-elif [ -f /sys/class/thermal/thermal_zone0/temp ]; then
-    # Fallback to thermal zone
-    temp=$(cat /sys/class/thermal/thermal_zone0/temp)
-    temp_c=$((temp / 1000))
-    temp_info="󰔏 ${temp_c}°C"
 fi
 
+# --- RAM and Swap (using /proc/meminfo) ---
+mem_swap_info=$(awk '
+  /^MemTotal:/ {mem_total=$2} 
+  /^MemAvailable:/ {mem_avail=$2} 
+  /^SwapTotal:/ {swap_total=$2} 
+  /^SwapFree:/ {swap_free=$2}
+  END {
+    if (mem_total > 0) {
+      mem_used = mem_total - mem_avail
+      mem_pct = int(mem_used * 100 / mem_total)
+    } else {
+      mem_pct = 0
+    }
+    
+    if (swap_total > 0) {
+      swap_used = swap_total - swap_free
+      swap_pct = int(swap_used * 100 / swap_total)
+    } else {
+      swap_pct = 0
+    }
+    
+    printf "󰘚 %d%% | 󰁯 %d%%", mem_pct, swap_pct
+  }
+' /proc/meminfo)
 
-# --- RAM and Swap Usage ---
-mem_swap_info=$(free | awk '
-  /Mem/  { mem=sprintf("󰘚 %.0f%%", $3/$2 * 100) }
-  /Swap/ { swap=sprintf("󰁯 %.0f%%", $2>0?$3/$2*100:0) }
-  END    { print mem " | " swap }
-')
-
-# --- Battery Percentage ---
+# --- Battery ---
 battery_info=""
-batt_dir=$(find /sys/class/power_supply/ -name 'BAT*' | head -n 1)
-if [ -n "$batt_dir" ]; then
-  charge=$(cat "$batt_dir/capacity")
-  status=$(cat "$batt_dir/status")
-  battery_info="󰂎 $charge%"
+if [ -f /sys/class/power_supply/BAT0/capacity ]; then
+    charge=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null)
+    if [ -n "$charge" ]; then
+        battery_info="󰂎 $charge%"
+    fi
 fi
 
-# --- Final Output ---
-# Order: CPU USAGE | CPU TEMP | RAM USAGE | SWAP USAGE | BATTERY PERCENTAGE
+# --- Output ---
 output="$cpu_info"
 
 if [ -n "$temp_info" ]; then
-  output="$temp_info | $output"
+    output="$temp_info | $output"
 fi
 
 output="$output | $mem_swap_info"
 
 if [ -n "$battery_info" ]; then
-  output="$output | $battery_info"
+    output="$output | $battery_info"
 fi
 
 echo "$output"
