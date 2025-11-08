@@ -81,6 +81,7 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
     # Run the new container
     podman run -d --name $CONTAINER \
       --userns=keep-id \
+      --init \
       --group-add keep-groups \
       --security-opt label=disable \
       -v $CONTAINER:/home/$USERNAME \
