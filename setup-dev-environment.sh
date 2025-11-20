@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e # Stop immediately if any command fails
 
 # --- Define user variables ---
 USERNAME="$USER"
@@ -29,16 +30,16 @@ if podman container exists "$CONTAINER"; then
 fi
 
 # ==============================================================================
-# PHASE 1: BUILD THE IMAGE (The Clean Way)
+# PHASE 1: BUILD THE IMAGE
 # ==============================================================================
 echo "Phase 1: Building custom image with Systemd..."
 
 # Create a temporary Containerfile
+# We use printf for the service file to ensure newlines are handled correctly
 cat <<EOF > Containerfile.tmp
 FROM fedora:latest
 
 # 1. Install Systemd and Base Tools
-# We install systemd explicitly to ensure /sbin/init works
 RUN dnf -y update && \
     dnf -y install systemd git zsh curl wget unzip fontconfig \
     util-linux-user procps-ng openssl-devel \
@@ -52,11 +53,11 @@ RUN dnf -y update && \
 # 2. Set Locale
 ENV LANG=en_US.UTF-8
 
-# 3. Set Timezone (Matches Brazil/East by default based on your requests)
+# 3. Set Timezone
 RUN ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
 
 # 4. Create the Neovim Service Definition
-RUN echo "[Unit]\n\
+RUN printf "[Unit]\n\
 Description=Neovim Headless Server\n\
 After=network.target\n\
 \n\
@@ -68,13 +69,12 @@ Restart=always\n\
 RestartSec=3\n\
 \n\
 [Install]\n\
-WantedBy=multi-user.target" > /etc/systemd/system/nvim-headless.service
+WantedBy=multi-user.target\n" > /etc/systemd/system/nvim-headless.service
 
 # Enable the service so it starts on boot
 RUN systemctl enable nvim-headless.service
 
-# 5. Ensure user exists inside image (matches host UID)
-# This prevents permission issues when mounting volumes
+# 5. Create User
 RUN groupadd -g $GID_NUM $USERNAME || true && \
     useradd -m -u $UID_NUM -g $GID_NUM -s /usr/bin/zsh $USERNAME && \
     echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USERNAME
@@ -83,9 +83,8 @@ RUN groupadd -g $GID_NUM $USERNAME || true && \
 CMD ["/sbin/init"]
 EOF
 
-# Build the image
+# Build the image (If this fails, the script stops here due to set -e)
 podman build -t "$IMAGE_NAME" -f Containerfile.tmp .
-# Clean up
 rm Containerfile.tmp
 
 
@@ -94,7 +93,6 @@ rm Containerfile.tmp
 # ==============================================================================
 echo "Phase 2: Starting the container..."
 
-# Note: --systemd=true is critical here
 podman run -d --name "$CONTAINER" \
     --systemd=true \
     --userns=keep-id \
@@ -103,36 +101,34 @@ podman run -d --name "$CONTAINER" \
     -v "$HOST_HOME_DIR:/home/$USERNAME:Z" \
     "$IMAGE_NAME"
 
-# Check if it started
-sleep 3
+# Wait a moment for systemd to initialize
+echo "Waiting for Systemd to initialize..."
+sleep 5
+
 if ! podman ps | grep -q "$CONTAINER"; then
-    echo "ERROR: Container failed to start. Checking logs:"
+    echo "ERROR: Container crashed. checking logs:"
     podman logs "$CONTAINER"
     exit 1
 fi
 
 
 # ==============================================================================
-# PHASE 3: USER CONFIGURATION (Dotfiles, Keys, SDKs)
+# PHASE 3: USER CONFIGURATION
 # ==============================================================================
-echo "Phase 3: configuring user environment..."
+echo "Phase 3: Configuring user environment..."
 
 # --- SSH Keys Injection ---
-echo "Configuring SSH keys..."
 podman exec -u root "$CONTAINER" sh -c "mkdir -p /home/$USERNAME/.ssh && chown $USERNAME:$USERNAME /home/$USERNAME/.ssh"
 HOST_SSH_DIR="$HOME/.ssh"
 if [ -d "$HOST_SSH_DIR" ]; then
     echo "Found SSH keys on host. Copying..."
-    # Copy all keys simply
     find "$HOST_SSH_DIR" -maxdepth 1 -type f ! -name "known_hosts" ! -name "config" -exec podman cp {} "$CONTAINER:/home/$USERNAME/.ssh/" \;
-    # Fix permissions
     podman exec -u "$USERNAME" "$CONTAINER" chmod 700 .ssh
     podman exec -u "$USERNAME" "$CONTAINER" sh -c "chmod 600 .ssh/* 2>/dev/null || true"
     podman exec -u "$USERNAME" "$CONTAINER" sh -c "chmod 644 .ssh/*.pub 2>/dev/null || true"
 fi
 
 # --- Run User Setup Script ---
-# We run this inside the container as the user
 podman exec -u "$USERNAME" -w "/home/$USERNAME" "$CONTAINER" /bin/zsh -c '
 # 1. Oh My Zsh
 if [ ! -d ".oh-my-zsh" ]; then
@@ -167,7 +163,7 @@ if ! command -v java &> /dev/null; then
     sdk install gradle
 fi
 
-# 6. Nerd Fonts (Download to local share)
+# 6. Nerd Fonts
 mkdir -p .local/share/fonts
 if [ ! -d ".local/share/fonts/JetBrainsMonoNF" ]; then
     echo "Downloading Fonts..."
@@ -191,7 +187,6 @@ if [ ! -f ".config/tmux/status.sh" ]; then
     curl -fLo .config/tmux/status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh
     chmod +x .config/tmux/status.sh
 fi
-# Fixed IF statement syntax here
 if [ ! -d ".tmux/plugins/tpm" ]; then git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm; fi
 '
 
