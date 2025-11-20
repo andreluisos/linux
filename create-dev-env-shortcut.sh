@@ -44,14 +44,15 @@ if [[ "$TERMINAL_CHOICE" == "wezterm" ]]; then
     CMD_TERM="flatpak run org.wezfurlong.wezterm start -- $PODMAN_CMD"
 else
     # Ptyxis: Launch zsh -> tmux
-    # Note: Added 'podman start' before exec to ensure it works if stopped
+    # Added 'podman start' to ensure it wakes up
     PODMAN_CMD="podman start $CONTAINER_NAME && podman exec -it -w '/home/$CURRENT_USER' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY $CONTAINER_NAME /bin/zsh -c 'tmux -u'"
-    CMD_TERM="ptyxis --fullscreen --command \"/bin/sh -c '$PODMAN_CMD'\""
+    CMD_TERM="ptyxis --fullscreen -x \"/bin/sh -c '$PODMAN_CMD'\""
 fi
 
-# 2. Neovide Command Construction
-# Logic: Start container -> Start Nvim Server (if not running) -> Launch Neovide
-CMD_GUI="sh -c \"podman start $CONTAINER_NAME && podman exec -d $CONTAINER_NAME nvim --headless --listen 0.0.0.0:6000; neovide --server=localhost:6000\""
+# 2. Neovide Command Construction (THE FIX IS HERE)
+# - We add '-w /home/$CURRENT_USER' to set the working directory to ~
+# - We add '--env SHELL=/usr/bin/zsh' so Neovim knows to use Zsh for :terminal
+CMD_GUI="sh -c \"podman start $CONTAINER_NAME && podman exec -d -w /home/$CURRENT_USER --env SHELL=/usr/bin/zsh $CONTAINER_NAME nvim --headless --listen 0.0.0.0:6000; neovide --server=localhost:6000\""
 
 # --- END: User Prompts ---
 
@@ -66,7 +67,7 @@ add_shortcut() {
     local command="$2"
     local binding="$3"
 
-    # Get current list freshly every time (since we modify it in the loop)
+    # Get current list freshly every time
     local current_list=$(gsettings get $BASE_GSETTINGS_PATH custom-keybindings)
 
     # Check if exists
@@ -90,7 +91,6 @@ add_shortcut() {
         new_list="['$KEYBINDING_LIST_PATH/custom$new_index/']"
     else
         new_index=$((last_index + 1))
-        # Append to the list string safely
         if [[ "$current_list" == "@as []" ]]; then
              new_list="['$KEYBINDING_LIST_PATH/custom$new_index/']"
         else
@@ -114,4 +114,4 @@ echo "-----------------------------------"
 add_shortcut "$SHORTCUT_NAME_TERM" "$CMD_TERM" "$KEY_BINDING_TERM"
 add_shortcut "$SHORTCUT_NAME_GUI" "$CMD_GUI" "$KEY_BINDING_GUI"
 echo "-----------------------------------"
-echo "All shortcuts configured!"
+echo "All shortcuts configured! Please test your hotkeys."
