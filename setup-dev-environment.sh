@@ -1,11 +1,16 @@
 #!/bin/bash
+set -e # Stop on error
 
 # --- Define user variables ---
 USERNAME="$USER"
+UID_NUM=$(id -u)
+GID_NUM=$(id -g)
 
 # --- Get container name ---
 read -p "Enter the name for the development container (e.g., 'fedora-dev'): " CONTAINER
 if [[ -z "$CONTAINER" ]]; then echo "Aborting."; exit 1; fi
+
+IMAGE_NAME="${CONTAINER}_img"
 
 # --- Get Host Directory ---
 DEFAULT_DIR="$HOME/Documents/containers/$CONTAINER"
@@ -20,170 +25,180 @@ if [ ! -d "$HOST_HOME_DIR" ]; then
 fi
 
 # ============================================================
-# 1. CREATE THE ENTRYPOINT SCRIPT (On Host)
+# 1. WRITE THE ENTRYPOINT SCRIPT
 # ============================================================
-# We write this to the host directory so it is persistent and mapped in.
 ENTRYPOINT_SCRIPT="$HOST_HOME_DIR/entrypoint.sh"
 
 cat <<EOF > "$ENTRYPOINT_SCRIPT"
 #!/bin/bash
+set -e
 
-# Define the Neovim Loop Function
-start_nvim_loop() {
-    # 1. Wait for Nvim to be installed (for the very first run)
-    while [ ! -x /usr/bin/nvim ]; do
-        echo "Waiting for Neovim installation..."
-        sleep 5
-    done
+# --- PATH CONFIGURATION ---
+export PATH="\$HOME/.local/bin:\$HOME/.cargo/bin:\$HOME/.sdkman/candidates/java/current/bin:\$HOME/.sdkman/candidates/gradle/current/bin:\$PATH"
 
-    # 2. Set Zsh as the shell for Neovim's internal terminal
-    export SHELL=/usr/bin/zsh
+# --- PROVISIONING FUNCTION ---
+provision_user() {
+    echo ">>> PROVISIONING: Checking environment..."
     
-    # 3. The Infinite Loop
-    while true; do
-        echo "Starting Neovim Server..."
-        # We run it headless. When client disconnects, it exits.
-        /usr/bin/nvim --headless --listen 0.0.0.0:6000
-        sleep 1
-    done
+    mkdir -p \$HOME/.local/{share,state,bin} \$HOME/.config \$HOME/.ssh
+
+    # 1. Oh My Zsh
+    if [ ! -d "\$HOME/.oh-my-zsh" ]; then
+        echo ">>> Installing Oh My Zsh..."
+        # We check for zsh availability first to prevent loop crash
+        if command -v zsh >/dev/null 2>&1; then
+            sh -c "\$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+        else
+            echo "ERROR: Zsh binary missing. System install failed."
+            exit 1
+        fi
+    fi
+
+    # 2. Rust
+    if [ ! -d "\$HOME/.cargo" ]; then
+        echo ">>> Installing Rust..."
+        curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    fi
+
+    # 3. Java / SDKMAN
+    if [ ! -d "\$HOME/.sdkman" ]; then
+        echo ">>> Installing SDKMAN..."
+        curl -s "https://get.sdkman.io" | bash
+        source "\$HOME/.sdkman/bin/sdkman-init.sh"
+        
+        echo ">>> Installing Java..."
+        if ! sdk install java 25-graalce; then
+             # Fallback logic
+             LATEST=\$(sdk list java | grep "graalce" | head -n 1 | cut -d"|" -f6 | tr -d " ")
+             sdk install java \$LATEST
+        fi
+        sdk install gradle
+    fi
+
+    # 4. Lazygit
+    if [ ! -f "\$HOME/.local/bin/lazygit" ]; then
+        echo ">>> Installing Lazygit..."
+        LG_VER=\$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+        curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_\${LG_VER}_Linux_x86_64.tar.gz"
+        tar xf lazygit.tar.gz lazygit
+        mv lazygit \$HOME/.local/bin/
+        rm lazygit.tar.gz
+    fi
+
+    # 5. Neovim Config
+    if [ ! -d "\$HOME/.config/nvim" ]; then
+        echo ">>> Cloning Neovim Config..."
+        git clone https://github.com/andreluisos/nvim.git \$HOME/.config/nvim
+        echo ">>> Bootstrapping Plugins..."
+        /usr/bin/nvim --headless "+Lazy! sync" +qa
+    fi
+
+    # 6. Tmux
+    mkdir -p \$HOME/.config/tmux
+    if [ ! -f "\$HOME/.config/tmux/tmux.conf" ]; then
+        curl -fLo \$HOME/.config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux
+        curl -fLo \$HOME/.config/tmux/status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh
+        chmod +x \$HOME/.config/tmux/status.sh
+        git clone https://github.com/tmux-plugins/tpm \$HOME/.tmux/plugins/tpm
+    fi
+
+    # 7. Fix .zshrc for persistence
+    if [ -f "\$HOME/.zshrc" ]; then
+        sed -i "s/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions)/g" \$HOME/.zshrc
+        if ! grep -q "export PATH=\$HOME/.local/bin" \$HOME/.zshrc; then
+            echo "" >> \$HOME/.zshrc
+            echo "# AUTO PATHS" >> \$HOME/.zshrc
+            echo "export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH" >> \$HOME/.zshrc
+            echo "export SDKMAN_DIR=\"\$HOME/.sdkman\"" >> \$HOME/.zshrc
+            echo "[[ -s \"\$HOME/.sdkman/bin/sdkman-init.sh\" ]] && source \"\$HOME/.sdkman/bin/sdkman-init.sh\"" >> \$HOME/.zshrc
+        fi
+    fi
 }
 
-# Start the loop in the background
-start_nvim_loop &
+provision_user
 
-# Keep the container alive forever (The replacement for sleep infinity)
-exec sleep infinity
+# --- SERVER LOOP ---
+export SHELL=/usr/bin/zsh
+PORT=6000
+
+echo "Starting Neovim Server Loop..."
+while true; do
+   /usr/bin/nvim --headless --listen 0.0.0.0:\$PORT > /dev/null 2>&1
+   sleep 1
+done
 EOF
-
 chmod +x "$ENTRYPOINT_SCRIPT"
 
-
-# --- Container Creation Logic ---
-MODE=""
+# ============================================================
+# 2. CLEANUP OLD CONTAINERS/IMAGES
+# ============================================================
 if podman container exists "$CONTAINER"; then
-    read -p "Container '$CONTAINER' exists. (R)ecreate, (U)pdate, or (S)kip? [U/r/s] " -r REPLY
-    case "$REPLY" in
-        [Rr]*) MODE="RECREATE" ;;
-        [Ss]*) echo "Skipping."; exit 0 ;;
-        *) MODE="UPDATE" ;;
-    esac
-else
-    MODE="CREATE"
-fi
-
-# --- RECREATE ---
-if [[ "$MODE" == "RECREATE" ]]; then
-    echo "Removing container '$CONTAINER'..."
+    echo "Cleaning up old container..."
     podman rm -f "$CONTAINER"
 fi
-
-# --- CREATE/RECREATE ---
-if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
-    echo "Initializing container..."
-    read -p "Enter extra args (e.g. -p 6000:6000): " ADDITIONAL_ARGS
-    
-    # CRITICAL CHANGE:
-    # We run the entrypoint.sh instead of sleep infinity directly.
-    podman run -d --name $CONTAINER \
-      --restart=always \
-      --userns=keep-id \
-      --init \
-      --group-add keep-groups \
-      -p 6000:6000 \
-      -v "$HOST_HOME_DIR:/home/$USERNAME:Z" \
-      $ADDITIONAL_ARGS \
-      fedora:latest \
-      /bin/bash "/home/$USERNAME/entrypoint.sh"
+# We also remove the image to ensure we build a fresh one with latest packages
+if podman image exists "$IMAGE_NAME"; then
+    echo "Cleaning up old image..."
+    podman rmi -f "$IMAGE_NAME"
 fi
 
-# --- INSTALLATION ---
-echo "Running setup as root..."
+# ============================================================
+# 3. PREPARE BASE SYSTEM (Root Phase)
+# ============================================================
+echo "Starting temporary install container..."
+# Start a temporary fedora container to install RPMs
+podman run -d --name "$CONTAINER" fedora:latest sleep infinity
+
+echo "Installing System Packages (Root)..."
 podman exec -u root "$CONTAINER" dnf update -y
+# CRITICAL: We install zsh here so it exists in the image later
 podman exec -u root "$CONTAINER" dnf install -y \
     git zsh curl util-linux-user unzip fontconfig \
-    nvim tmux tzdata lm_sensors keychain fd fzf \
+    nvim tmux tzdata lm_sensors keychain fd fzf ripgrep \
     luarocks wget procps-ng lsof openssl-devel \
-    @development-tools rustup
+    gcc-c++ make cmake \
+    @development-tools
 
-# Locale & Time
+echo "Configuring Locale & Time..."
 podman exec -u root "$CONTAINER" sh -c 'dnf install -y glibc-langpack-en && echo "LANG=en_US.UTF-8" > /etc/locale.conf'
 podman exec -u root "$CONTAINER" ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
 
-# Nerd Fonts
-echo "Installing Nerd Fonts..."
-podman exec -u root "$CONTAINER" sh -c '
-curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
-mkdir -p /usr/local/share/fonts/JetBrainsMonoNF
-unzip -o -q /tmp/fonts.zip -d /usr/local/share/fonts/JetBrainsMonoNF
-rm /tmp/fonts.zip
-fc-cache -fv
-'
+echo "Creating User '$USERNAME'..."
+podman exec -u root "$CONTAINER" sh -c "
+    groupadd -g $GID_NUM $USERNAME || true
+    useradd -m -u $UID_NUM -g $GID_NUM -s /usr/bin/zsh $USERNAME
+    echo '$USERNAME ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/$USERNAME
+"
 
-# Permissions & Force Shell
-podman exec -u root "$CONTAINER" sh -c "echo '$USERNAME ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/$USERNAME"
-podman exec -u root "$CONTAINER" sh -c "cp -n -rT /etc/skel/ /home/$USERNAME/ || true" 
-podman exec -u root "$CONTAINER" usermod -d "/home/$USERNAME" -s /usr/bin/zsh "$USERNAME"
+# ============================================================
+# 4. COMMIT TO IMAGE (The Missing Link!)
+# ============================================================
+echo "Saving state to image '$IMAGE_NAME'..."
+# This saves the Zsh installation into a reusable image
+podman commit "$CONTAINER" "$IMAGE_NAME"
 
-# SSH Keys
-echo "Configuring SSH keys..."
-podman exec -u root "$CONTAINER" sh -c "mkdir -p /home/$USERNAME/.ssh && chown $USERNAME:$USERNAME /home/$USERNAME/.ssh"
-HOST_SSH_DIR="$HOME/.ssh"
-if [ -d "$HOST_SSH_DIR" ]; then
-    find "$HOST_SSH_DIR" -maxdepth 1 -type f ! -name "known_hosts" ! -name "config" -exec podman cp {} "$CONTAINER:/home/$USERNAME/.ssh/" \; 2>/dev/null || true
-    podman exec -u "$USERNAME" "$CONTAINER" chmod 700 .ssh
-    podman exec -u "$USERNAME" "$CONTAINER" sh -c "chmod 600 .ssh/* 2>/dev/null || true"
-    podman exec -u "$USERNAME" "$CONTAINER" sh -c "chmod 644 .ssh/*.pub 2>/dev/null || true"
-fi
+# Remove the temporary install container
+podman rm -f "$CONTAINER"
 
+# ============================================================
+# 5. LAUNCH FINAL CONTAINER
+# ============================================================
+echo "Launching Final Container..."
 
-# --- USER CONFIGURATION ---
-echo "Configuring user environment..."
-podman exec -u "$USERNAME" -w "/home/$USERNAME" "$CONTAINER" /bin/zsh -c '
-mkdir -p .local/{share,state,bin} .config .ssh
-
-# 1. Oh My Zsh & Plugins
-if [ ! -d ".oh-my-zsh" ]; then sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; fi
-ZSH_CUSTOM=".oh-my-zsh/custom"
-mkdir -p "${ZSH_CUSTOM}/plugins"
-[ ! -d "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" ] && git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting
-[ ! -d "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ] && git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM}/plugins/zsh-autosuggestions
-[ ! -d "${ZSH_CUSTOM}/plugins/zsh-completions" ] && git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM}/plugins/zsh-completions
-[ ! -d "${ZSH_CUSTOM}/plugins/zsh-history-substring-search" ] && git clone https://github.com/zsh-users/zsh-history-substring-search ${ZSH_CUSTOM}/plugins/zsh-history-substring-search
-
-# 2. Zshrc Config
-if [ -f .zshrc ]; then
-    sed -i "s/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions zsh-history-substring-search)/g" .zshrc
-    sed -i "s|# export PATH=\$HOME/bin:\$HOME/\.local/bin:/usr/local/bin:\$PATH|export PATH=\$HOME/bin:\$HOME/\.local/bin:/usr/local/bin:\$HOME/\.cargo/bin:\$PATH|g" .zshrc
-    grep -qxF "autoload -U compinit && compinit" .zshrc || echo "autoload -U compinit && compinit" >> .zshrc
-    grep -qF "keychain --eval" .zshrc || echo "\\n# Load SSH keys\\neval \$(keychain --eval --quiet \$(grep -srlF -e \"PRIVATE KEY\" ~/.ssh))" >> .zshrc
-fi
-
-# 3. Tools
-if [ ! -d ".sdkman" ]; then curl -s "https://get.sdkman.io" | bash; fi
-source ".sdkman/bin/sdkman-init.sh"
-if ! command -v java &> /dev/null; then sdk install java 21.0.2-graalce; sdk install gradle; fi
-if [ ! -d ".cargo" ]; then curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; fi
-
-# 4. Tmux
-mkdir -p .config/tmux
-[ ! -f ".config/tmux/tmux.conf" ] && curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux
-[ ! -f ".config/tmux/status.sh" ] && curl -fLo .config/tmux/status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh && chmod +x .config/tmux/status.sh
-if [ ! -d ".tmux/plugins/tpm" ]; then git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm; fi
-
-# 5. NVIM Config & Bootstrap
-if [ ! -d ".config/nvim" ]; then 
-    git clone https://github.com/andreluisos/nvim.git .config/nvim
-    echo "Bootstrapping Neovim plugins..."
-    /usr/bin/nvim --headless "+Lazy! sync" +qa
-fi
-'
+podman run -d --name "$CONTAINER" \
+    --restart=always \
+    --userns=keep-id \
+    --init \
+    --group-add keep-groups \
+    -p 6000:6000 \
+    -v "$HOST_HOME_DIR:/home/$USERNAME:Z" \
+    -u "$USERNAME" \
+    -w "/home/$USERNAME" \
+    "$IMAGE_NAME" \
+    /bin/bash entrypoint.sh
 
 echo "------------------------------------------------"
 echo "Setup Complete!"
-echo "Restarting container to pick up all changes..."
-podman restart "$CONTAINER"
+echo "Running logs (Ctrl+C to exit logs):"
 echo "------------------------------------------------"
-echo "1. Neovim Server is running on port 6000."
-echo "2. It starts automatically when the container starts."
-echo "3. No Host Dependencies. No Systemd."
-echo "------------------------------------------------"
+podman logs -f "$CONTAINER"
