@@ -1,10 +1,7 @@
 #!/bin/bash
-set -e # Stop on error
 
-# --- Define user variables ---
+# --- Define user and host variables ---
 USERNAME="$USER"
-UID_NUM=$(id -u)
-GID_NUM=$(id -g)
 
 # --- Get container name from user ---
 read -p "Enter the name for the development container (e.g., 'fedora-dev'): " CONTAINER
