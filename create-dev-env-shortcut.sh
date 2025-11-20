@@ -58,8 +58,8 @@ if [[ "$TERMINAL_CHOICE" == "wezterm" ]]; then
     CMD_TERM="flatpak run org.wezfurlong.wezterm start -- $PODMAN_CMD"
 else
     # Ptyxis (Using your fix: -x)
-    PODMAN_CMD="podman exec -it -w '/home/$CURRENT_USER' $CONTAINER_NAME /bin/zsh -c 'tmux -u'"
-    COMMAND_TO_RUN="ptyxis -x \"$PODMAN_CMD\" --fullscreen"
+    PODMAN_CMD="$PODMAN_BIN exec -it -w '/home/$CURRENT_USER' $CONTAINER_NAME /bin/zsh -c 'tmux -u'"
+    CMD_TERM="ptyxis -x \"$PODMAN_CMD\" --fullscreen"
 fi
 
 # 2. Neovide Command Construction
