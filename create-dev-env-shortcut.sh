@@ -29,30 +29,44 @@ if [[ -z "$KEY_BINDING_TERM" ]]; then echo "Aborting."; exit 1; fi
 
 # Shortcut 2: Neovide
 SHORTCUT_NAME_GUI="Launch $CONTAINER_NAME Neovide"
-read -p "Enter key binding for Neovide (e.g., '<Super>n'): " KEY_BINDING_GUI
+read -p "Enter key binding for Neovide (e.g., '<Super>r'): " KEY_BINDING_GUI
 if [[ -z "$KEY_BINDING_GUI" ]]; then echo "Aborting."; exit 1; fi
 
 # Get current user for working dir
 CURRENT_USER=$(whoami)
 
+# --- START: Path Detection (The Fix for GNOME) ---
+# GNOME Shortcuts don't load your .zshrc/.bashrc, so they don't know your PATH.
+# We find the absolute paths now and bake them into the command.
+
+PODMAN_BIN=$(command -v podman)
+if [[ -z "$PODMAN_BIN" ]]; then PODMAN_BIN="/usr/bin/podman"; fi
+
+NEOVIDE_BIN=$(command -v neovide)
+if [[ -z "$NEOVIDE_BIN" ]]; then 
+    echo "WARNING: 'neovide' not found in PATH. Assuming 'neovide'..."
+    NEOVIDE_BIN="neovide"
+fi
+# -------------------------------------------------
+
 # --- Define Commands ---
 
 # 1. Terminal Command Construction
 if [[ "$TERMINAL_CHOICE" == "wezterm" ]]; then
-    # Wezterm: Launch zsh directly
-    PODMAN_CMD="podman exec -it -w '/home/$CURRENT_USER' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY $CONTAINER_NAME /bin/zsh"
+    # Wezterm
+    PODMAN_CMD="$PODMAN_BIN exec -it -w '/home/$CURRENT_USER' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY $CONTAINER_NAME /bin/zsh"
     CMD_TERM="flatpak run org.wezfurlong.wezterm start -- $PODMAN_CMD"
 else
-    # Ptyxis: Launch zsh -> tmux
-    # Added 'podman start' to ensure it wakes up
-    PODMAN_CMD="podman start $CONTAINER_NAME && podman exec -it -w '/home/$CURRENT_USER' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY $CONTAINER_NAME /bin/zsh -c 'tmux -u'"
-    CMD_TERM="ptyxis --fullscreen -x \"/bin/sh -c '$PODMAN_CMD'\""
+    # Ptyxis (Using your fix: -x)
+    PODMAN_CMD="$PODMAN_BIN start $CONTAINER_NAME && $PODMAN_BIN exec -it -w '/home/$CURRENT_USER' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY $CONTAINER_NAME /bin/zsh -c 'tmux -u'"
+    # Note: We wrap in sh -c because -x expects a command string or args
+    CMD_TERM="ptyxis --fullscreen -x /bin/sh -c \"$PODMAN_CMD\""
 fi
 
-# 2. Neovide Command Construction (THE FIX IS HERE)
-# - We add '-w /home/$CURRENT_USER' to set the working directory to ~
-# - We add '--env SHELL=/usr/bin/zsh' so Neovim knows to use Zsh for :terminal
-CMD_GUI="sh -c \"podman start $CONTAINER_NAME && podman exec -d -w /home/$CURRENT_USER --env SHELL=/usr/bin/zsh $CONTAINER_NAME nvim --headless --listen 0.0.0.0:6000; neovide --server=localhost:6000\""
+# 2. Neovide Command Construction
+# - Uses absolute paths ($PODMAN_BIN, $NEOVIDE_BIN)
+# - Explicitly calls /bin/sh to handle the && and ; logic
+CMD_GUI="sh -c \"$PODMAN_BIN start $CONTAINER_NAME && $PODMAN_BIN exec -d -w /home/$CURRENT_USER --env SHELL=/usr/bin/zsh $CONTAINER_NAME nvim --headless --listen 0.0.0.0:6000; $NEOVIDE_BIN --server=localhost:6000\""
 
 # --- END: User Prompts ---
 
@@ -110,6 +124,9 @@ add_shortcut() {
 }
 
 # --- Execute Creation ---
+echo "-----------------------------------"
+echo "Neovide path detected as: $NEOVIDE_BIN"
+echo "Podman path detected as:  $PODMAN_BIN"
 echo "-----------------------------------"
 add_shortcut "$SHORTCUT_NAME_TERM" "$CMD_TERM" "$KEY_BINDING_TERM"
 add_shortcut "$SHORTCUT_NAME_GUI" "$CMD_GUI" "$KEY_BINDING_GUI"
