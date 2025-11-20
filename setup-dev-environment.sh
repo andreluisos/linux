@@ -12,6 +12,7 @@ DEFAULT_DIR="$HOME/Containers/$CONTAINER"
 echo -e "\nWhere should the container's /home/$USERNAME be mapped on the host?"
 read -p "Path (default: $DEFAULT_DIR): " INPUT_DIR
 HOST_HOME_DIR="${INPUT_DIR:-$DEFAULT_DIR}"
+# Fix tilde expansion if user typed explicit '~'
 HOST_HOME_DIR="${HOST_HOME_DIR/#\~/$HOME}"
 
 if [ ! -d "$HOST_HOME_DIR" ]; then
@@ -40,7 +41,7 @@ podman run -d --name $CONTAINER \
 # --- INSTALLATION ---
 echo "Installing system packages (including Systemd)..."
 podman exec -u root "$CONTAINER" dnf update -y
-# Added 'systemd' explicitly to the install list
+# Added 'systemd' explicitly to the install list so /sbin/init exists later
 podman exec -u root "$CONTAINER" dnf install -y systemd git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata lm_sensors keychain fd fzf luarocks wget procps-ng openssl-devel @development-tools rustup
 
 # Locale & Time
@@ -107,7 +108,7 @@ if [ ! -d ".config/nvim" ]; then git clone https://github.com/andreluisos/nvim.g
 mkdir -p .config/tmux
 [ ! -f ".config/tmux/tmux.conf" ] && curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux
 [ ! -f ".config/tmux/status.sh" ] && curl -fLo .config/tmux/status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh && chmod +x .config/tmux/status.sh
-[ ! -d ".tmux/plugins/tpm" ] && git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm
+[ ! -d ".tmux/plugins/tpm" ]; then git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm; fi
 if [ ! -d "$HOME/.oh-my-zsh" ]; then sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; fi
 ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
 mkdir -p "${ZSH_CUSTOM}/plugins"
