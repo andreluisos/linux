@@ -64,10 +64,7 @@ else
 fi
 
 # 2. Neovide Command Construction (THE FIX)
-# - Removed: -v flag (Cannot be used in exec)
-# - Added: sleep 1 (Gives nvim time to bind the port)
-# - Fixed: Logic flow to ensure clean startup
-CMD_GUI="sh -c \"$PODMAN_BIN start $CONTAINER_NAME && $PODMAN_BIN exec -d -w /home/$CURRENT_USER --env SHELL=/usr/bin/zsh --env SSH_AUTH_SOCK=/ssh-agent $CONTAINER_NAME nvim --headless --listen 0.0.0.0:6000 && sleep 1 && $NEOVIDE_BIN --server=localhost:6000\""
+CMD_GUI="sh -c \"$PODMAN_BIN start $CONTAINER_NAME && $PODMAN_BIN exec -d -w /home/$CURRENT_USER --env SHELL=/usr/bin/zsh $CONTAINER_NAME /bin/zsh -c 'source ~/.zshrc && nvim --headless --listen 0.0.0.0:6000' && sleep 1 && $NEOVIDE_BIN --server=localhost:6000\""
 
 # --- END: User Prompts ---
 
