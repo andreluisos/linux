@@ -89,6 +89,7 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
       --init \
       --group-add keep-groups \
       -p 6000:6000 \
+      -v "$HOST_HOME_DIR:/home/$USERNAME:Z" \
       $ADDITIONAL_ARGS \
       fedora:latest \
       sleep infinity
