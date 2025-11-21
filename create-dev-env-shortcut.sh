@@ -65,7 +65,8 @@ fi
 # 2. Neovide Command Construction
 # - Uses absolute paths ($PODMAN_BIN, $NEOVIDE_BIN)
 # - Explicitly calls /bin/sh to handle the && and ; logic
-CMD_GUI="sh -c \"$PODMAN_BIN start $CONTAINER_NAME && $PODMAN_BIN exec -d -w /home/$CURRENT_USER --env SHELL=/usr/bin/zsh $CONTAINER_NAME nvim --headless --listen 0.0.0.0:6000; $NEOVIDE_BIN --server=localhost:6000\""
+# - Forwards SSH agent socket from host to container for git operations in lazygit/neovim
+CMD_GUI="sh -c \"$PODMAN_BIN start $CONTAINER_NAME && $PODMAN_BIN exec -d -w /home/$CURRENT_USER --env SHELL=/usr/bin/zsh --env SSH_AUTH_SOCK=/ssh-agent -v \\\$SSH_AUTH_SOCK:/ssh-agent $CONTAINER_NAME nvim --headless --listen 0.0.0.0:6000; $NEOVIDE_BIN --server=localhost:6000\""
 
 # --- END: User Prompts ---
 
