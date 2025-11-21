@@ -227,8 +227,42 @@ sdk install java $GRAALVM_IDENTIFIER
 echo "Installing latest Gradle..."
 sdk install gradle
 
+# --- Install OpenCode ---
+echo ">>> Installing OpenCode..."
+curl -fsSL https://opencode.ai/install | bash
+
+# --- Configure OpenCode with all LSPs disabled ---
+echo ">>> Configuring OpenCode..."
+mkdir -p .config/opencode
+cat > .config/opencode/opencode.json << "OPENCODE_EOF"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": {
+    "typescript": { "disabled": true },
+    "deno": { "disabled": true },
+    "eslint": { "disabled": true },
+    "gopls": { "disabled": true },
+    "ruby-lsp": { "disabled": true },
+    "pyright": { "disabled": true },
+    "elixir-ls": { "disabled": true },
+    "zls": { "disabled": true },
+    "csharp": { "disabled": true },
+    "vue": { "disabled": true },
+    "rust": { "disabled": true },
+    "clangd": { "disabled": true },
+    "svelte": { "disabled": true },
+    "astro": { "disabled": true },
+    "yaml-ls": { "disabled": true },
+    "jdtls": { "disabled": true },
+    "lua-ls": { "disabled": true },
+    "sourcekit-lsp": { "disabled": true },
+    "php": { "disabled": true }
+  }
+}
+OPENCODE_EOF
+
 # --- Install Rust ---
-echo "Installing Rust..."
+echo ">>> Installing Rust..."
 rustup-init -y
 '
 
