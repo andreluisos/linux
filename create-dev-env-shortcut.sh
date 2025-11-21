@@ -53,23 +53,23 @@ fi
 
 # 1. Terminal Command Construction
 if [[ "$TERMINAL_CHOICE" == "wezterm" ]]; then
-    # Wezterm
-    PODMAN_CMD="$PODMAN_BIN exec -it -w '/home/$CURRENT_USER' --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY $CONTAINER_NAME /bin/zsh"
-    CMD_TERM="flatpak run org.wezfurlong.wezterm start -- $PODMAN_CMD"
+    # Wezterm (Flatpak)
+    # Note: Flatpak Wezterm running host podman is complex. 
+    # Ensure host-spawn permissions are set or this will fail.
+    CMD_TERM="flatpak run org.wezfurlong.wezterm start -- $PODMAN_BIN exec -it -w /home/$CURRENT_USER $CONTAINER_NAME /bin/zsh"
 else
-    # Ptyxis (Using your fix: -x)
-    PODMAN_CMD="$PODMAN_BIN exec -it -w '/home/$CURRENT_USER' $CONTAINER_NAME /bin/zsh -c 'tmux -u'"
-    CMD_TERM="ptyxis -x \"$PODMAN_CMD\" --fullscreen"
+    # Ptyxis (Native)
+    # We use '--' instead of -x with complex quotes to be safer
+    CMD_TERM="ptyxis --new-window -- $PODMAN_BIN exec -it -w /home/$CURRENT_USER $CONTAINER_NAME /bin/zsh -c 'tmux -u'"
 fi
 
-# 2. Neovide Command Construction
-# - Uses absolute paths ($PODMAN_BIN, $NEOVIDE_BIN)
-# - Explicitly calls /bin/sh to handle the && and ; logic
-# - Forwards SSH agent socket from host to container for git operations in lazygit/neovim
-CMD_GUI="sh -c \"$PODMAN_BIN start $CONTAINER_NAME && $PODMAN_BIN exec -d -w /home/$CURRENT_USER --env SHELL=/usr/bin/zsh --env SSH_AUTH_SOCK=/ssh-agent -v \\\$SSH_AUTH_SOCK:/ssh-agent $CONTAINER_NAME nvim --headless --listen 0.0.0.0:6000; $NEOVIDE_BIN --server=localhost:6000\""
+# 2. Neovide Command Construction (THE FIX)
+# - Removed: -v flag (Cannot be used in exec)
+# - Added: sleep 1 (Gives nvim time to bind the port)
+# - Fixed: Logic flow to ensure clean startup
+CMD_GUI="sh -c \"$PODMAN_BIN start $CONTAINER_NAME && $PODMAN_BIN exec -d -w /home/$CURRENT_USER --env SHELL=/usr/bin/zsh --env SSH_AUTH_SOCK=/ssh-agent $CONTAINER_NAME nvim --headless --listen 0.0.0.0:6000 && sleep 1 && $NEOVIDE_BIN --server=localhost:6000\""
 
 # --- END: User Prompts ---
-
 
 # --- GNOME Settings Logic ---
 BASE_GSETTINGS_PATH="org.gnome.settings-daemon.plugins.media-keys"
