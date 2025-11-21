@@ -71,25 +71,51 @@ fi
 # --- Mode: CREATE or RECREATE ---
 # This block runs for a new container or a recreated one
 if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
-    echo "Creating new volume and container..."
+    echo -e "\n--- Storage Configuration ---"
+    echo "1) Host Directory (Bind Mount) - Direct access from host file manager [Default]"
+    echo "2) Podman Volume               - Better performance, fully isolated"
+    read -p "Choose storage type (1 or 2): " STORAGE_CHOICE
 
-    # Create the volume only if it doesn't exist
-    if ! podman volume exists "$CONTAINER"; then
-        podman volume create "$CONTAINER"
+    STORAGE_ARGS=""
+
+    if [[ "$STORAGE_CHOICE" == "2" ]]; then
+        # --- Option 2: Podman Volume ---
+        echo "Using Podman Volume '$CONTAINER'..."
+        
+        # Create volume if it doesn't exist
+        if ! podman volume exists "$CONTAINER"; then
+            podman volume create "$CONTAINER"
+        fi
+        
+        # Volume mount (no :Z needed for internal volumes)
+        STORAGE_ARGS="-v $CONTAINER:/home/$USERNAME"
+    else
+        # --- Option 1: Host Directory (Default) ---
+        DEFAULT_DIR="$HOME/Documents/containers/$CONTAINER"
+        echo -e "\nWhere should the container's /home/$USERNAME be mapped on the host?"
+        read -p "Path (default: $DEFAULT_DIR): " INPUT_DIR
+        HOST_HOME_DIR="${INPUT_DIR:-$DEFAULT_DIR}"
+        HOST_HOME_DIR="${HOST_HOME_DIR/#\~/$HOME}"
+
+        if [ ! -d "$HOST_HOME_DIR" ]; then
+            echo "Creating directory: $HOST_HOME_DIR"
+            mkdir -p "$HOST_HOME_DIR"
+        fi
+        
+        # Bind mount with :Z for SELinux support
+        STORAGE_ARGS="-v $HOST_HOME_DIR:/home/$USERNAME:Z"
     fi
 
     # --- Ask for additional container arguments ---
-    read -p "Enter any additional arguments for 'podman run' (e.g., '-p 8080:8080 -v /my/projects:/projects'): " ADDITIONAL_ARGS
-    if [[ -n "$ADDITIONAL_ARGS" ]]; then
-        echo "Adding extra arguments: $ADDITIONAL_ARGS"
-    fi
+    read -p "Enter any additional arguments for 'podman run' (e.g., '-p 8080:8080'): " ADDITIONAL_ARGS
 
+    echo "Creating container..."
     podman run -d --name $CONTAINER \
       --userns=keep-id \
       --init \
       --group-add keep-groups \
       -p 6000:6000 \
-      -v "$HOST_HOME_DIR:/home/$USERNAME:Z" \
+      $STORAGE_ARGS \
       $ADDITIONAL_ARGS \
       fedora:latest \
       sleep infinity
