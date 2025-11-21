@@ -84,17 +84,11 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
         echo "Adding extra arguments: $ADDITIONAL_ARGS"
     fi
 
-    SSH_MOUNT_ARGS=""
-    if [ -n "$SSH_AUTH_SOCK" ]; then
-        SSH_MOUNT_ARGS="-v $SSH_AUTH_SOCK:/ssh-agent"
-    fi
-
     podman run -d --name $CONTAINER \
       --userns=keep-id \
       --init \
       --group-add keep-groups \
       -p 6000:6000 \
-      $SSH_MOUNT_ARGS \
       $ADDITIONAL_ARGS \
       fedora:latest \
       sleep infinity
