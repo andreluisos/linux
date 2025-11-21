@@ -90,6 +90,7 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
       --init \
       --group-add keep-groups \
       -p 6000:6000 \
+      $SSH_AUTH_SOCK:/ssh-agent \
       $ADDITIONAL_ARGS \
       fedora:latest \
       sleep infinity
