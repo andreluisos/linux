@@ -7,18 +7,6 @@ USERNAME="$USER"
 read -p "Enter the name for the development container (e.g., 'fedora-dev'): " CONTAINER
 if [[ -z "$CONTAINER" ]]; then echo "Aborting."; exit 1; fi
 
-# --- Get Host Directory ---
-DEFAULT_DIR="$HOME/Documents/containers/$CONTAINER"
-echo -e "\nWhere should the container's /home/$USERNAME be mapped on the host?"
-read -p "Path (default: $DEFAULT_DIR): " INPUT_DIR
-HOST_HOME_DIR="${INPUT_DIR:-$DEFAULT_DIR}"
-HOST_HOME_DIR="${HOST_HOME_DIR/#\~/$HOME}"
-
-if [ ! -d "$HOST_HOME_DIR" ]; then
-    echo "Creating directory: $HOST_HOME_DIR"
-    mkdir -p "$HOST_HOME_DIR"
-fi
-
 # --- Check container status and determine action ---
 MODE=""
 if podman container exists "$CONTAINER"; then
@@ -55,22 +43,14 @@ fi
 if [[ "$MODE" == "RECREATE" ]]; then
     echo "Removing container '$CONTAINER'..."
     podman rm -f "$CONTAINER"
-
-    if podman volume exists "$CONTAINER"; then
-        read -p "Volume '$CONTAINER' also exists. Do you want to remove it for a fresh install? (y/N) " -r REPLY_VOL
-        echo # Move to a new line
-        if [[ "$REPLY_VOL" =~ ^[Yy]$ ]]; then
-            echo "Removing volume '$CONTAINTER' for a clean slate..."
-            podman volume rm -f "$CONTAINTAINER"
-        else
-            echo "Keeping the existing volume '$CONTAINER'."
-        fi
-    fi
+    # Note: We don't auto-remove volumes here to prevent accidental data loss
 fi
 
 # --- Mode: CREATE or RECREATE ---
 # This block runs for a new container or a recreated one
 if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
+    
+    # --- Storage Configuration ---
     echo -e "\n--- Storage Configuration ---"
     echo "1) Host Directory (Bind Mount) - Direct access from host file manager [Default]"
     echo "2) Podman Volume               - Better performance, fully isolated"
@@ -87,7 +67,6 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
             podman volume create "$CONTAINER"
         fi
         
-        # Volume mount (no :Z needed for internal volumes)
         STORAGE_ARGS="-v $CONTAINER:/home/$USERNAME"
     else
         # --- Option 1: Host Directory (Default) ---
@@ -108,8 +87,10 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
 
     # --- Ask for additional container arguments ---
     read -p "Enter any additional arguments for 'podman run' (e.g., '-p 8080:8080'): " ADDITIONAL_ARGS
+    if [[ -n "$ADDITIONAL_ARGS" ]]; then
+        echo "Adding extra arguments: $ADDITIONAL_ARGS"
+    fi
 
-    echo "Creating container..."
     podman run -d --name $CONTAINER \
       --userns=keep-id \
       --init \
@@ -125,8 +106,15 @@ fi
 # This block runs in all active modes to provision or update the container
 
 # --- Run setup commands as root ---
-echo "Running setup as root in '$CONTAINCOMMA'..."
+echo "Running setup as root in '$CONTAINER'..."
 podman exec -u root "$CONTAINER" dnf update -y
+
+# --- Install GitHub CLI (gh) ---
+echo "Installing GitHub CLI..."
+podman exec -u root "$CONTAINER" dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
+podman exec -u root "$CONTAINER" dnf install -y gh --repo gh-cli
+
+# --- Install standard packages ---
 # Added rustup to the install list
 podman exec -u root "$CONTAINER" dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata lm_sensors keychain fd fzf luarocks wget procps-ng openssl-devel @development-tools rustup
 
@@ -150,38 +138,30 @@ podman exec -u root "$CONTAINER" chown -R "$USERNAME:$USERNAME" "/home/$USERNAME
 podman exec -u root "$CONTAINER" usermod -d "/home/$USERNAME" -s /usr/bin/zsh "$USERNAME"
 
 
-
 # SSH Keys
 echo "Configuring SSH keys..."
+# Ensure .ssh dir exists
 podman exec -u root "$CONTAINER" sh -c "mkdir -p /home/$USERNAME/.ssh && chown $USERNAME:$USERNAME /home/$USERNAME/.ssh"
-if [ -d "$HOME/.ssh" ]; then
-    find "$HOME/.ssh" -maxdepth 1 -type f ! -name "known_hosts" ! -name "config" -exec podman cp {} "$CONTAINER:/home/$USERNAME/.ssh/" \; 2>/dev/null || true
-    podman exec -u "$USERNAME" "$CONTAINER" chmod 700 .ssh
-    podman exec -u "$USERNAME" "$CONTAINER" sh -c "chmod 600 .ssh/* 2>/dev/null || true"
-    podman exec -u "$USERNAME" "$CONTAINER" sh -c "chmod 644 .ssh/*.pub 2>/dev/null || true"
-fi
 
-# This variable will be passed into the container
+# Helper function to find keys
+HOST_SSH_DIR="$HOME/.ssh"
 CHMOD_COMMANDS=""
-if [ ${#SELECTED_KEYS[@]} -gt 0 ]; then
-    echo "Copying selected keys to '$CONTAINER'..."
-    for key in "${SELECTED_KEYS[@]}"; do
-        # Copy private key
-        if [ -f "$HOST_SSH_DIR/$key" ]; then
-            podman cp "$HOST_SSH_DIR/$key" "$CONTAINER:/home/$USERNAME/.ssh/$key"
-            CHMOD_COMMANDS+="chmod 600 .ssh/$key; "
+
+if [ -d "$HOST_SSH_DIR" ]; then
+    # Find potential keys (id_rsa, id_ed25519, id_ecdsa)
+    for key_type in id_rsa id_ed25519 id_ecdsa; do
+        if [ -f "$HOST_SSH_DIR/$key_type" ]; then
+            echo "Copying $key_type..."
+            podman cp "$HOST_SSH_DIR/$key_type" "$CONTAINER:/home/$USERNAME/.ssh/$key_type"
+            CHMOD_COMMANDS+="chmod 600 .ssh/$key_type; "
         fi
-        # Copy public key if it exists
-        if [ -f "$HOST_SSH_DIR/$key.pub" ]; then
-            podman cp "$HOST_SSH_DIR/$key.pub" "$CONTAINER:/home/$USERNAME/.ssh/$key.pub"
-            CHMOD_COMMANDS+="chmod 644 .ssh/$key.pub; "
+        if [ -f "$HOST_SSH_DIR/$key_type.pub" ]; then
+            podman cp "$HOST_SSH_DIR/$key_type.pub" "$CONTAINER:/home/$USERNAME/.ssh/$key_type.pub"
+            CHMOD_COMMANDS+="chmod 644 .ssh/$key_type.pub; "
         fi
     done
-else
-    echo "Skipping SSH key setup."
 fi
-export CHMOD_COMMANDS # Export for podman exec
-
+export CHMOD_COMMANDS
 
 # --- Run setup commands as the user ---
 echo "Configuring user environment in '$CONTAINER'..."
@@ -197,9 +177,7 @@ eval $CHMOD_COMMANDS
 # --- Install lazygit ---
 if [ ! -f ".local/bin/lazygit" ]; then
     echo ">>> Installing Lazygit..."
-    # Fixed quoting below:
     LG_VER=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po "\"tag_name\": \"v\K[^\"]*")
-    
     curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LG_VER}_Linux_x86_64.tar.gz"
     tar xf lazygit.tar.gz lazygit
     mv lazygit .local/bin/
@@ -236,9 +214,10 @@ git clone https://github.com/zsh-users/zsh-history-substring-search ${ZSH_CUSTOM
 
 # --- Configure .zshrc ---
 sed -i "s/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions zsh-history-substring-search)/g" .zshrc
-# Updated PATH command to include .local/bin and .cargo/bin
+# Updated PATH command
 sed -i "s|# export PATH=\$HOME/bin:\$HOME/\.local/bin:/usr/local/bin:\$PATH|export PATH=\$HOME/bin:\$HOME/\.local/bin:/usr/local/bin:\$HOME/\.cargo/bin:\$PATH|g" .zshrc
 grep -qxF "autoload -U compinit && compinit" .zshrc || echo "autoload -U compinit && compinit" >> .zshrc
+# Add keychain loader (this fixes the SSH agent issue!)
 grep -qF "keychain --eval" .zshrc || echo "\\n# Load SSH keys\\neval \$(keychain --eval --quiet \$(grep -srlF -e \"PRIVATE KEY\" ~/.ssh))" >> .zshrc
 
 # --- Force reinstallation of SDKMAN! ---
@@ -257,8 +236,7 @@ sdk install gradle
 echo ">>> Installing OpenCode..."
 curl -fsSL https://opencode.ai/install | bash
 
-# --- Configure OpenCode with all LSPs disabled ---
-echo ">>> Configuring OpenCode..."
+# --- Configure OpenCode ---
 mkdir -p .config/opencode
 cat > .config/opencode/opencode.json << "OPENCODE_EOF"
 {
