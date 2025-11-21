@@ -111,7 +111,7 @@ podman exec -u root "$CONTAINER" dnf update -y
 
 # --- Install GitHub CLI (gh) ---
 echo "Installing GitHub CLI..."
-podman exec -u root "$CONTAINER" dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
+podman exec -u root "$CONTAINER" dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo -y
 podman exec -u root "$CONTAINER" dnf install -y gh --repo gh-cli
 
 # --- Install standard packages ---
