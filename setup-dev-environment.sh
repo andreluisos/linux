@@ -92,6 +92,7 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
     fi
 
     podman run -d --name $CONTAINER \
+      --network=host \
       --userns=keep-id \
       --init \
       --group-add keep-groups \
