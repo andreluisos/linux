@@ -2,155 +2,153 @@
 
 # This script automates the setup of a Linux development environment.
 # It configures GNOME settings, sets up environment variables,
-# downloads utility scripts, asks for confirmation, runs them, and creates aliases.
+# downloads utility scripts, and generates Distrobox configuration.
+
+set -e # Exit immediately if a command exits with a non-zero status
 
 echo "Starting environment setup..."
 
-# --- Terminal Choice ---
-echo "Please choose your preferred terminal:"
-echo "  1) Ptyxis (Default)"
-echo "  2) Wezterm (via Flathub)"
-read -p "Enter choice (1 or 2): " term_choice
+# --- 0. Pre-Checks & Variables ---
+CONFIG_DIR="$HOME/.config/distrobox"
+CONFIG_FILE="$CONFIG_DIR/distrobox.ini"
 
-TERMINAL_CHOICE="ptyxis"
-if [[ "$term_choice" == "2" ]]; then
-    TERMINAL_CHOICE="wezterm"
+# Get current Ptyxis profile ID if it exists, otherwise default to a safe value
+if command -v gsettings &>/dev/null; then
+    PTYXIS_PROFILE=$(gsettings get org.gnome.Ptyxis default-profile 2>/dev/null | tr -d "'")
+    [ -z "$PTYXIS_PROFILE" ] && PTYXIS_PROFILE="default"
 fi
-echo "Using terminal: $TERMINAL_CHOICE"
 
-# --- GNOME Desktop Configuration ---
+# Ask for terminal preference if not set
+if [ -z "$TERMINAL_CHOICE" ]; then
+    read -p "Which terminal do you prefer? (ptyxis/wezterm) [default: ptyxis]: " TERMINAL_CHOICE
+    TERMINAL_CHOICE=${TERMINAL_CHOICE:-ptyxis}
+fi
+
+# --- 1. GNOME Desktop Configuration ---
 echo "Configuring GNOME desktop settings..."
+# General Interface
 gsettings set org.gnome.desktop.interface clock-show-date true
 gsettings set org.gnome.desktop.interface clock-show-seconds true
 gsettings set org.gnome.desktop.interface clock-show-weekday true
-gsettings set org.gnome.desktop.wm.preferences button-layout ":minimize,maximize,close"
 gsettings set org.gnome.desktop.interface gtk-enable-primary-paste false
+gsettings set org.gnome.desktop.interface show-battery-percentage true
+gsettings set org.gnome.desktop.interface clock-format '24h'
+gsettings set org.gnome.desktop.datetime automatic-timezone true
+
+# Window Manager
+gsettings set org.gnome.desktop.wm.preferences button-layout ":minimize,maximize,close"
 gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 "['<Super>1']"
 gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-2 "['<Super>2']"
 gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-3 "['<Super>3']"
 gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-4 "['<Super>4']"
-gsettings set org.gnome.desktop.datetime automatic-timezone true
-gsettings set org.gnome.desktop.interface clock-format '24h'
+
+# Nautilus (Files)
 gsettings set org.gnome.nautilus.preferences default-folder-viewer 'list-view'
-gsettings set org.gtk.gtk4.Settings.FileChooser sort-directories-first true
 gsettings set org.gnome.nautilus.list-view use-tree-view true
-gsettings set org.gnome.desktop.interface show-battery-percentage true
+gsettings set org.gtk.gtk4.Settings.FileChooser sort-directories-first true
+
+# Power
 gsettings set org.gnome.settings-daemon.plugins.power ambient-enabled false
 
-# --- Terminal-Specific Configuration ---
+# --- 2. Font Installation (JetBrains Mono Nerd Font) ---
+FONT_NAME="JetBrainsMono Nerd Font"
+FONT_DIR="$HOME/.local/share/fonts/JetBrainsMonoNF"
+
+echo "Checking for '$FONT_NAME'..."
+if fc-list | grep -q "$FONT_NAME"; then
+    echo "✅ '$FONT_NAME' is already installed."
+else
+    echo "📥 Installing '$FONT_NAME'..."
+    mkdir -p "$HOME/.local/share/fonts"
+    curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
+    mkdir -p "$FONT_DIR"
+    unzip -o /tmp/fonts.zip -d "$FONT_DIR" > /dev/null
+    rm /tmp/fonts.zip
+    fc-cache -fv > /dev/null
+    echo "✅ Nerd Fonts installed."
+fi
+
+# --- 3. Terminal Configuration ---
+
 if [[ "$TERMINAL_CHOICE" == "ptyxis" ]]; then
     echo "Configuring Ptyxis..."
     gsettings set org.gnome.Ptyxis disable-padding true
     gsettings set org.gnome.Ptyxis use-system-font false
     gsettings set org.gnome.Ptyxis font-name 'JetBrainsMono Nerd Font Medium 11'
-    gsettings set org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/$PTYXIS_PROFILE/ palette 'gnome'
-    mkdir -p .config/gtk-4.0
-    cat << 'EOF' > .config/gtk-4.0/gtk.css
+    
+    # Try to set palette for the current profile
+    if [ -n "$PTYXIS_PROFILE" ]; then
+        gsettings set "org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/$PTYXIS_PROFILE/" palette 'gnome' || echo "Warning: Could not set Ptyxis palette."
+    fi
+
+    # CSS padding fix
+    mkdir -p "$HOME/.config/gtk-4.0"
+    cat << 'EOF' > "$HOME/.config/gtk-4.0/gtk.css"
 /* padding for ptyxis */
 VteTerminal,
- TerminalScreen,
- vte-terminal {
-     padding: 0;
+TerminalScreen,
+vte-terminal {
+    padding: 0;
 }
 EOF
-    echo "Ptyxis settings applied."
-else
+    echo "✅ Ptyxis settings applied."
+
+elif [[ "$TERMINAL_CHOICE" == "wezterm" ]]; then
     echo "Installing and configuring Wezterm..."
     flatpak install -y flathub org.wezfurlong.wezterm
     
     mkdir -p "$HOME/.config/wezterm"
     echo "Downloading Wezterm config..."
-    wget -O "$HOME/.config/wezterm/wezterm.lua" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/wezterm.lua
+    curl -fLo "$HOME/.config/wezterm/wezterm.lua" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/wezterm.lua
     
     echo "Downloading Wezterm status script..."
-    wget -O "$HOME/.config/wezterm/status.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh
+    curl -fLo "$HOME/.config/wezterm/status.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh
     chmod +x "$HOME/.config/wezterm/status.sh"
     
-    echo "Wezterm setup complete."
+    echo "✅ Wezterm setup complete."
 fi
 
-echo "GNOME settings applied."
-
-# --- Environment Variable Setup ---
-# Appends environment variables to the user's .profile file.
-# This ensures they are loaded on every login.
-echo "Setting up environment variables in .profile..."
-{
-  echo '' # Add a newline for separation
-  echo '# --- Custom Environment Variables ---'
-  echo 'export EDITOR="vi"'
-} >> "$HOME/.profile"
-echo "Environment variables added."
-
-# Install JetBrains Mono Nerd Font
-FONT_NAME="JetBrainsMono Nerd Font"
-FONT_DIR="$HOME/.local/share/fonts/JetBrainsMonoNF"
-
-echo "Checking for '$FONT_NAME'..."
-
-# Use fc-list to check if the font is already registered by the system
-if fc-list | grep -q "$FONT_NAME"; then
-    echo "'$FONT_NAME' is already installed. Skipping download and installation."
+# --- 4. Environment Variables ---
+echo "Setting up environment variables..."
+if ! grep -q "export EDITOR=\"vi\"" "$HOME/.profile"; then
+    echo '' >> "$HOME/.profile"
+    echo '# --- Custom Environment Variables ---' >> "$HOME/.profile"
+    echo 'export EDITOR="vi"' >> "$HOME/.profile"
+    echo "✅ Added EDITOR variable to .profile"
 else
-    echo "'$FONT_NAME' not found. Installing now..."
-    mkdir -p "$HOME/.local/share/fonts"
-    curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
-    mkdir -p "$FONT_DIR"
-    unzip /tmp/fonts.zip -d "$FONT_DIR"
-    rm /tmp/fonts.zip
-    fc-cache -fv
-    echo "Nerd Fonts installed and cache updated."
+    echo "✅ Environment variables already present."
 fi
 
-# --- Script Downloads ---
-# Downloads the necessary scripts from the specified GitHub repository.
-# It places them in the user's home directory and makes them executable.
-echo "Downloading utility scripts..."
-mkdir -p "$HOME/.scripts"
-wget -O "$HOME/.scripts/create-dev-env-shortcut.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/create-dev-env-shortcut.sh
-wget -O "$HOME/.scripts/setup-dev-environment.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/setup-dev-environment.sh
+# --- 5. Distrobox Configuration ---
+echo ">>> Creating Distrobox configuration directory: $CONFIG_DIR"
+mkdir -p "$CONFIG_DIR"
 
-# Make the downloaded scripts executable
-chmod +x "$HOME/.scripts/create-dev-env-shortcut.sh"
-chmod +x "$HOME/.scripts/setup-dev-environment.sh"
-echo "Scripts downloaded and made executable."
+echo ">>> Creating container storage directories..."
+mkdir -p "$HOME/Documents/containers/dev"
+mkdir -p "$HOME/Documents/containers/esp"
 
-# --- Script Execution Confirmation ---
-echo "Please confirm which scripts you would like to run."
-read -p "Run create-dev-env-shortcut.sh? (y/n): " run_shortcut
-read -p "Run setup-dev-environment.sh? (y/n): " run_dev_env
+echo ">>> Writing configuration to $CONFIG_FILE..."
 
-# --- Running Downloaded Scripts ---
-echo "Running selected setup scripts..."
-if [[ "$run_dev_env" =~ ^[Yy]$ ]]; then
-    echo "Executing setup-dev-environment.sh..."
-    "$HOME/.scripts/setup-dev-environment.sh"
-else
-    echo "Skipping setup-dev-environment.sh."
-fi
+# Note: Variables $HOME and $USER are expanded NOW. 
+# This correctly hardcodes the user into the ini file, fixing the 'su' issue.
+cat <<EOF > "$CONFIG_FILE"
+[dev]
+image=registry.fedoraproject.org/fedora-toolbox:latest
+home=$HOME/Documents/containers/dev
+additional_packages="git zsh neovim tmux gcc gcc-c++ openssl-devel systemd-devel pkg-config curl"
+init_hooks=su - $USER -c "curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/bootstrap.sh | bash"
 
-if [[ "$run_shortcut" =~ ^[Yy]$ ]]; then
-    echo "Executing create-dev-env-shortcut.sh..."
-    # Pass the chosen terminal as an argument
-    "$HOME/.scripts/create-dev-env-shortcut.sh" "$TERMINAL_CHOICE"
-else
-    echo "Skipping create-dev-env-shortcut.sh."
-fi
-echo "Scripts execution phase complete."
+[esp-rust]
+image=registry.fedoraproject.org/fedora-toolbox:latest
+home=$HOME/Documents/containers/esp
+additional_flags="--privileged"
+additional_packages="git zsh neovim tmux gcc gcc-c++ clang openssl-devel pkg-config systemd-devel python3 python3-pip libudev-devel"
+init_hooks=su - $USER -c "curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/bootstrap.sh | bash"
+EOF
 
-# --- Command Alias Setup ---
-# Creates aliases in .profile for the downloaded scripts for easy access.
-echo "Creating command aliases in .profile..."
-{
-  echo '' # Add a newline for separation
-  echo '# --- Custom Command Aliases ---'
-  echo 'alias set-dev-env="$HOME/setup-dev-environment.sh"'
-} >> "$HOME/.profile"
-echo "Command aliases created."
+echo ">>> Success! Content of generated file:"
+echo "---------------------------------------------------"
+cat "$CONFIG_FILE"
+echo "---------------------------------------------------"
 
-# --- Source the profile to apply changes ---
-echo "Applying changes to the current session..."
-# shellcheck source=/dev/null
-source "$HOME/.profile"
-
-echo "Setup complete! Your profile has been updated and sourced. For all changes to take full effect, you may need to log out and log back in."
+echo "🎉 Setup complete! Please log out and back in for all changes to take effect."
