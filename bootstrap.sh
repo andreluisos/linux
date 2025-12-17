@@ -130,7 +130,7 @@ if [ ! -d "$HOME/.sdkman" ]; then
     
     echo ">>> [LANG] Installing Java (GraalVM)..."
     # Installs latest GraalVM CE available
-    GRAAL_VER=$(sdk list java | grep "graalce" | head -n 1 | cut -d"|" -f6 | tr -d " ")
+    GRAAL_VER=$(sdk list java | grep "graalce" | head -n 1 | cut -d"|" -f6 | tr -d " " || true)
     sdk install java "$GRAAL_VER" || true
     sdk install gradle || true
 else 
@@ -165,3 +165,4 @@ fi
 # --- 8. FINALIZATION ---
 touch "$HOME/.provisioning_complete"
 echo ">>> [BOOTSTRAP] Setup Complete! Please restart your shell or type 'zsh'."
+
