@@ -2,23 +2,13 @@
 
 # This script automates the setup of a Linux development environment.
 # It configures GNOME settings, sets up Ptyxis, installs fonts,
-# sets environment variables, and generates/runs Distrobox configuration.
+# sets environment variables, and installs development tools in shared home.
 
 set -e # Exit immediately if a command exits with a non-zero status
 
 echo "Starting environment setup..."
 
 # --- 0. Pre-Checks & Variables ---
-# CHECK: Ensure Distrobox is installed
-if ! command -v distrobox &> /dev/null; then
-    echo "❌ Error: Distrobox is not installed or not in your PATH."
-    echo "   Please install it first (e.g., 'sudo dnf install distrobox' or 'curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh')"
-    exit 1
-fi
-
-CONFIG_DIR="$HOME/.config/distrobox"
-CONFIG_FILE="$CONFIG_DIR/distrobox.ini"
-
 # Get current Ptyxis profile ID if it exists, otherwise default to a safe value
 if command -v gsettings &>/dev/null; then
     PTYXIS_PROFILE=$(gsettings get org.gnome.Ptyxis default-profile 2>/dev/null | tr -d "'")
@@ -110,36 +100,155 @@ else
     echo "✅ Environment variables already present."
 fi
 
-# --- 5. Distrobox Configuration & Assembly ---
-echo ">>> Creating Distrobox configuration directory: $CONFIG_DIR"
-mkdir -p "$CONFIG_DIR"
+# --- 5. Neovim Configuration ---
+if [ ! -d "$HOME/.config/nvim" ]; then
+    echo "📥 Cloning Neovim configuration..."
+    git clone https://github.com/andreluisos/nvim.git "$HOME/.config/nvim"
+    echo "✅ Neovim configuration installed."
+else
+    echo "✅ Neovim configuration already present."
+fi
 
-echo ">>> Creating container storage directories..."
-mkdir -p "$HOME/Documents/containers/dev"
-mkdir -p "$HOME/Documents/containers/esp"
+# --- 6. Zsh Setup ---
+if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    echo "📥 Installing Oh My Zsh..."
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    echo "✅ Oh My Zsh installed."
+else
+    echo "✅ Oh My Zsh already installed."
+fi
 
-echo ">>> Writing configuration to $CONFIG_FILE..."
+# Install Zsh plugins
+ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
+mkdir -p "${ZSH_CUSTOM}/plugins"
 
-# Generate the config file
-cat <<EOF > "$CONFIG_FILE"
-[dev]
-image=registry.fedoraproject.org/fedora-toolbox:latest
-home=$HOME/Documents/containers/dev
-additional_packages="git zsh neovim tmux gcc gcc-c++ openssl-devel systemd-devel pkg-config curl"
-init_hooks=su - $USER -c "curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/bootstrap.sh | bash"
+declare -A PLUGINS=(
+    ["zsh-syntax-highlighting"]="https://github.com/zsh-users/zsh-syntax-highlighting.git"
+    ["zsh-autosuggestions"]="https://github.com/zsh-users/zsh-autosuggestions"
+    ["zsh-completions"]="https://github.com/zsh-users/zsh-completions"
+    ["zsh-history-substring-search"]="https://github.com/zsh-users/zsh-history-substring-search"
+)
 
-[esp-rust]
-image=registry.fedoraproject.org/fedora-toolbox:latest
-home=$HOME/Documents/containers/esp
-additional_flags="--privileged"
-additional_packages="git zsh neovim tmux gcc gcc-c++ clang openssl-devel pkg-config systemd-devel python3 python3-pip libudev-devel"
-init_hooks=su - $USER -c "curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/bootstrap.sh | bash"
+for plugin in "${!PLUGINS[@]}"; do
+    if [ ! -d "${ZSH_CUSTOM}/plugins/$plugin" ]; then
+        echo "📥 Installing Zsh plugin: $plugin"
+        git clone "${PLUGINS[$plugin]}" "${ZSH_CUSTOM}/plugins/$plugin"
+    fi
+done
+echo "✅ Zsh plugins installed."
+
+# Configure .zshrc
+if [ -f "$HOME/.zshrc" ]; then
+    # Activate plugins
+    if grep -q "plugins=(git)" "$HOME/.zshrc"; then
+        sed -i "s/plugins=(git)/plugins=(git zsh-syntax-highlighting zsh-autosuggestions zsh-completions zsh-history-substring-search)/g" "$HOME/.zshrc"
+        echo "✅ Zsh plugins activated in .zshrc"
+    fi
+    
+    # Add custom config block if not present
+    if ! grep -q "TOOLBOX_CUSTOM_CONFIG" "$HOME/.zshrc"; then
+        cat << 'EOF' >> "$HOME/.zshrc"
+
+# --- TOOLBOX_CUSTOM_CONFIG ---
+export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$HOME/.cargo/bin:$PATH
+
+# SSH Agent (Keychain)
+if command -v keychain >/dev/null 2>&1; then
+    eval $(keychain --eval --quiet)
+fi
+
+# SDKMAN
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+# Rust Cargo
+[[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
+
+# ESP32 / Embedded Rust (Only loads if file exists)
+[ -f "$HOME/export-esp.sh" ] && source "$HOME/export-esp.sh"
+
+# Fix Locale
+export LANG=en_US.UTF-8
+
+# Bootstrap alias
+alias bootstrap-dev='sh -c "$(curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/bootstrap.sh)"'
 EOF
+        echo "✅ Custom configuration added to .zshrc"
+    else
+        echo "✅ Custom configuration already present in .zshrc"
+    fi
+fi
 
-echo "✅ Distrobox configuration created."
+# --- 7. SDKMAN Installation ---
+if [ ! -d "$HOME/.sdkman" ]; then
+    echo "📥 Installing SDKMAN..."
+    curl -s "https://get.sdkman.io" | bash
+    source "$HOME/.sdkman/bin/sdkman-init.sh"
+    
+    echo "📥 Installing Java (GraalVM)..."
+    GRAAL_VER=$(sdk list java | grep "graalce" | head -n 1 | cut -d"|" -f6 | tr -d " " || true)
+    if [ -n "$GRAAL_VER" ]; then
+        sdk install java "$GRAAL_VER" || true
+    fi
+    
+    echo "📥 Installing Gradle..."
+    sdk install gradle || true
+    echo "✅ SDKMAN, Java, and Gradle installed."
+else
+    echo "✅ SDKMAN already installed."
+fi
 
-echo "🚀 Assembling Distrobox containers... (This replaces any existing containers with the same name)"
-# Added --replace to ensure the new HOME path is enforced
-distrobox assemble create --replace --file "$CONFIG_FILE"
+# --- 8. Rust Installation ---
+if ! command -v rustup &> /dev/null; then
+    echo "📥 Installing Rust..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source "$HOME/.cargo/env"
+    echo "✅ Rust installed."
+else
+    echo "✅ Rust already installed."
+fi
 
-echo "🎉 Setup complete! Containers are created. Please log out and back in for all changes to take effect."
+# --- 9. Lazygit Installation ---
+if [ ! -f "$HOME/.local/bin/lazygit" ]; then
+    echo "📥 Installing Lazygit..."
+    mkdir -p "$HOME/.local/bin"
+    LG_VER=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+    curl -Lo /tmp/lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LG_VER}_Linux_x86_64.tar.gz"
+    tar xf /tmp/lazygit.tar.gz -C /tmp lazygit
+    mv /tmp/lazygit "$HOME/.local/bin/"
+    rm /tmp/lazygit.tar.gz
+    echo "✅ Lazygit installed."
+else
+    echo "✅ Lazygit already installed."
+fi
+
+# --- 10. Tmux Configuration ---
+echo "📥 Setting up Tmux configuration..."
+mkdir -p "$HOME/.config/tmux"
+curl -fLo "$HOME/.config/tmux/tmux.conf" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux
+curl -fLo "$HOME/.config/tmux/status.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh
+chmod +x "$HOME/.config/tmux/status.sh"
+echo "✅ Tmux configuration updated."
+
+# --- 11. TPM (Tmux Plugin Manager) ---
+if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
+    echo "📥 Installing TPM (Tmux Plugin Manager)..."
+    git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
+    echo "✅ TPM installed."
+else
+    echo "✅ TPM already installed."
+fi
+
+echo ""
+echo "🎉 Setup complete!"
+echo ""
+echo "Next steps:"
+echo "  1. Create toolboxes manually:"
+echo "     toolbox create dev"
+echo "     toolbox create esp-rust"
+echo "  2. Enter a toolbox:"
+echo "     toolbox enter dev"
+echo "  3. Run the bootstrap script:"
+echo "     bootstrap-dev"
+echo ""
+echo "Please log out and back in for all changes to take effect."
