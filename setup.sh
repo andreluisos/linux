@@ -172,6 +172,25 @@ EOF
     else
         echo "✅ Custom configuration already present in .zshrc"
     fi
+
+    # Add Toolbox/Container Prompt indicator
+    if ! grep -q "box_name=" "$HOME/.zshrc"; then
+        cat << 'EOF' >> "$HOME/.zshrc"
+
+# --- Toolbox/Container Prompt ---
+if [[ -f /run/.toolboxenv || -f /run/.containerenv ]]; then
+    if [[ -f /run/.containerenv ]]; then
+        box_name=$(grep -E '^name=' /run/.containerenv | cut -d'"' -f2)
+    else
+        box_name="toolbox"
+    fi
+    PROMPT="%F{cyan}($box_name)%f $PROMPT"
+fi
+EOF
+        echo "✅ Toolbox prompt indicator added to .zshrc"
+    else
+        echo "✅ Toolbox prompt indicator already present in .zshrc"
+    fi
 fi
 
 # --- 7. SDKMAN Installation ---
