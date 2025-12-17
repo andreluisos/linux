@@ -46,13 +46,8 @@ gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-4 "['<Super>4
 
 # --- Custom Keyboard Shortcuts (<Super>t for Ptyxis) ---
 echo "Setting custom shortcut <Super>t for Ptyxis..."
-# Define the path for our custom keybinding
 KEY_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/"
-
-# Register the custom keybinding path
 gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['$KEY_PATH']"
-
-# Configure the shortcut details
 gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$KEY_PATH name "Ptyxis Terminal"
 gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$KEY_PATH command "ptyxis --new-window"
 gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$KEY_PATH binding "<Super>t"
@@ -89,12 +84,10 @@ gsettings set org.gnome.Ptyxis disable-padding true
 gsettings set org.gnome.Ptyxis use-system-font false
 gsettings set org.gnome.Ptyxis font-name 'JetBrainsMono Nerd Font Medium 11'
 
-# Try to set palette for the current profile
 if [ -n "$PTYXIS_PROFILE" ]; then
     gsettings set "org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/$PTYXIS_PROFILE/" palette 'gnome' || echo "Warning: Could not set Ptyxis palette."
 fi
 
-# CSS padding fix
 mkdir -p "$HOME/.config/gtk-4.0"
 cat << 'EOF' > "$HOME/.config/gtk-4.0/gtk.css"
 /* padding for ptyxis */
@@ -127,8 +120,7 @@ mkdir -p "$HOME/Documents/containers/esp"
 
 echo ">>> Writing configuration to $CONFIG_FILE..."
 
-# Note: Variables $HOME and $USER are expanded NOW. 
-# This correctly hardcodes the user into the ini file.
+# Generate the config file
 cat <<EOF > "$CONFIG_FILE"
 [dev]
 image=registry.fedoraproject.org/fedora-toolbox:latest
@@ -146,7 +138,8 @@ EOF
 
 echo "✅ Distrobox configuration created."
 
-echo "🚀 Assembling Distrobox containers... (This may take a while)"
-distrobox assemble create --file "$CONFIG_FILE"
+echo "🚀 Assembling Distrobox containers... (This replaces any existing containers with the same name)"
+# Added --replace to ensure the new HOME path is enforced
+distrobox assemble create --replace --file "$CONFIG_FILE"
 
 echo "🎉 Setup complete! Containers are created. Please log out and back in for all changes to take effect."
