@@ -265,9 +265,19 @@ else
 fi
 
 # D. Install Helper Tools (Flash, Generate, Proxy)
-echo "📥 Installing espflash, cargo-generate, ldproxy..."
-cargo binstall -y cargo-generate espflash ldproxy
-echo "✅ ESP tools installed."
+echo "Checking ESP helper tools..."
+TOOLS_TO_INSTALL=()
+command -v cargo-generate &> /dev/null || TOOLS_TO_INSTALL+=("cargo-generate")
+command -v espflash &> /dev/null || TOOLS_TO_INSTALL+=("espflash")
+command -v ldproxy &> /dev/null || TOOLS_TO_INSTALL+=("ldproxy")
+
+if [ ${#TOOLS_TO_INSTALL[@]} -gt 0 ]; then
+    echo "📥 Installing: ${TOOLS_TO_INSTALL[*]}..."
+    cargo binstall -y "${TOOLS_TO_INSTALL[@]}"
+    echo "✅ ESP helper tools installed."
+else
+    echo "✅ ESP helper tools already installed."
+fi
 
 # --- 13. OpenCode Installation ---
 if ! command -v opencode &> /dev/null; then
@@ -279,9 +289,10 @@ else
 fi
 
 # Configure OpenCode
-echo "📥 Configuring OpenCode..."
-mkdir -p "$HOME/.config/opencode"
-cat > "$HOME/.config/opencode/opencode.json" << "OPENCODE_EOF"
+if [ ! -f "$HOME/.config/opencode/opencode.json" ]; then
+    echo "📥 Configuring OpenCode..."
+    mkdir -p "$HOME/.config/opencode"
+    cat > "$HOME/.config/opencode/opencode.json" << "OPENCODE_EOF"
 {
   "$schema": "https://opencode.ai/config.json",
   "lsp": {
@@ -307,7 +318,10 @@ cat > "$HOME/.config/opencode/opencode.json" << "OPENCODE_EOF"
   }
 }
 OPENCODE_EOF
-echo "✅ OpenCode configured."
+    echo "✅ OpenCode configured."
+else
+    echo "✅ OpenCode configuration already exists."
+fi
 
 echo ""
 echo "🎉 Setup complete!"
