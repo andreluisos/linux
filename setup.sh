@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # This script automates the setup of a Linux development environment.
-# It configures GNOME settings, sets up environment variables,
-# downloads utility scripts, and generates Distrobox configuration.
+# It configures GNOME settings, sets up Ptyxis, installs fonts,
+# sets environment variables, and generates Distrobox configuration.
 
 set -e # Exit immediately if a command exits with a non-zero status
 
@@ -16,12 +16,6 @@ CONFIG_FILE="$CONFIG_DIR/distrobox.ini"
 if command -v gsettings &>/dev/null; then
     PTYXIS_PROFILE=$(gsettings get org.gnome.Ptyxis default-profile 2>/dev/null | tr -d "'")
     [ -z "$PTYXIS_PROFILE" ] && PTYXIS_PROFILE="default"
-fi
-
-# Ask for terminal preference if not set
-if [ -z "$TERMINAL_CHOICE" ]; then
-    read -p "Which terminal do you prefer? (ptyxis/wezterm) [default: ptyxis]: " TERMINAL_CHOICE
-    TERMINAL_CHOICE=${TERMINAL_CHOICE:-ptyxis}
 fi
 
 # --- 1. GNOME Desktop Configuration ---
@@ -68,22 +62,20 @@ else
     echo "✅ Nerd Fonts installed."
 fi
 
-# --- 3. Terminal Configuration ---
+# --- 3. Ptyxis Configuration ---
+echo "Configuring Ptyxis..."
+gsettings set org.gnome.Ptyxis disable-padding true
+gsettings set org.gnome.Ptyxis use-system-font false
+gsettings set org.gnome.Ptyxis font-name 'JetBrainsMono Nerd Font Medium 11'
 
-if [[ "$TERMINAL_CHOICE" == "ptyxis" ]]; then
-    echo "Configuring Ptyxis..."
-    gsettings set org.gnome.Ptyxis disable-padding true
-    gsettings set org.gnome.Ptyxis use-system-font false
-    gsettings set org.gnome.Ptyxis font-name 'JetBrainsMono Nerd Font Medium 11'
-    
-    # Try to set palette for the current profile
-    if [ -n "$PTYXIS_PROFILE" ]; then
-        gsettings set "org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/$PTYXIS_PROFILE/" palette 'gnome' || echo "Warning: Could not set Ptyxis palette."
-    fi
+# Try to set palette for the current profile
+if [ -n "$PTYXIS_PROFILE" ]; then
+    gsettings set "org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/$PTYXIS_PROFILE/" palette 'gnome' || echo "Warning: Could not set Ptyxis palette."
+fi
 
-    # CSS padding fix
-    mkdir -p "$HOME/.config/gtk-4.0"
-    cat << 'EOF' > "$HOME/.config/gtk-4.0/gtk.css"
+# CSS padding fix
+mkdir -p "$HOME/.config/gtk-4.0"
+cat << 'EOF' > "$HOME/.config/gtk-4.0/gtk.css"
 /* padding for ptyxis */
 VteTerminal,
 TerminalScreen,
@@ -91,22 +83,7 @@ vte-terminal {
     padding: 0;
 }
 EOF
-    echo "✅ Ptyxis settings applied."
-
-elif [[ "$TERMINAL_CHOICE" == "wezterm" ]]; then
-    echo "Installing and configuring Wezterm..."
-    flatpak install -y flathub org.wezfurlong.wezterm
-    
-    mkdir -p "$HOME/.config/wezterm"
-    echo "Downloading Wezterm config..."
-    curl -fLo "$HOME/.config/wezterm/wezterm.lua" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/wezterm.lua
-    
-    echo "Downloading Wezterm status script..."
-    curl -fLo "$HOME/.config/wezterm/status.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh
-    chmod +x "$HOME/.config/wezterm/status.sh"
-    
-    echo "✅ Wezterm setup complete."
-fi
+echo "✅ Ptyxis settings applied."
 
 # --- 4. Environment Variables ---
 echo "Setting up environment variables..."
@@ -130,7 +107,7 @@ mkdir -p "$HOME/Documents/containers/esp"
 echo ">>> Writing configuration to $CONFIG_FILE..."
 
 # Note: Variables $HOME and $USER are expanded NOW. 
-# This correctly hardcodes the user into the ini file, fixing the 'su' issue.
+# This correctly hardcodes the user into the ini file.
 cat <<EOF > "$CONFIG_FILE"
 [dev]
 image=registry.fedoraproject.org/fedora-toolbox:latest
