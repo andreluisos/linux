@@ -2,13 +2,20 @@
 
 # This script automates the setup of a Linux development environment.
 # It configures GNOME settings, sets up Ptyxis, installs fonts,
-# sets environment variables, and generates Distrobox configuration.
+# sets environment variables, and generates/runs Distrobox configuration.
 
 set -e # Exit immediately if a command exits with a non-zero status
 
 echo "Starting environment setup..."
 
 # --- 0. Pre-Checks & Variables ---
+# CHECK: Ensure Distrobox is installed
+if ! command -v distrobox &> /dev/null; then
+    echo "❌ Error: Distrobox is not installed or not in your PATH."
+    echo "   Please install it first (e.g., 'sudo dnf install distrobox' or 'curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh')"
+    exit 1
+fi
+
 CONFIG_DIR="$HOME/.config/distrobox"
 CONFIG_FILE="$CONFIG_DIR/distrobox.ini"
 
@@ -20,6 +27,7 @@ fi
 
 # --- 1. GNOME Desktop Configuration ---
 echo "Configuring GNOME desktop settings..."
+
 # General Interface
 gsettings set org.gnome.desktop.interface clock-show-date true
 gsettings set org.gnome.desktop.interface clock-show-seconds true
@@ -35,6 +43,19 @@ gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-1 "['<Super>1
 gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-2 "['<Super>2']"
 gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-3 "['<Super>3']"
 gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-4 "['<Super>4']"
+
+# --- Custom Keyboard Shortcuts (<Super>t for Ptyxis) ---
+echo "Setting custom shortcut <Super>t for Ptyxis..."
+# Define the path for our custom keybinding
+KEY_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/"
+
+# Register the custom keybinding path
+gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['$KEY_PATH']"
+
+# Configure the shortcut details
+gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$KEY_PATH name "Ptyxis Terminal"
+gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$KEY_PATH command "ptyxis --new-window"
+gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$KEY_PATH binding "<Super>t"
 
 # Nautilus (Files)
 gsettings set org.gnome.nautilus.preferences default-folder-viewer 'list-view'
@@ -96,7 +117,7 @@ else
     echo "✅ Environment variables already present."
 fi
 
-# --- 5. Distrobox Configuration ---
+# --- 5. Distrobox Configuration & Assembly ---
 echo ">>> Creating Distrobox configuration directory: $CONFIG_DIR"
 mkdir -p "$CONFIG_DIR"
 
@@ -123,9 +144,9 @@ additional_packages="git zsh neovim tmux gcc gcc-c++ clang openssl-devel pkg-con
 init_hooks=su - $USER -c "curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/bootstrap.sh | bash"
 EOF
 
-echo ">>> Success! Content of generated file:"
-echo "---------------------------------------------------"
-cat "$CONFIG_FILE"
-echo "---------------------------------------------------"
+echo "✅ Distrobox configuration created."
 
-echo "🎉 Setup complete! Please log out and back in for all changes to take effect."
+echo "🚀 Assembling Distrobox containers... (This may take a while)"
+distrobox assemble create --file "$CONFIG_FILE"
+
+echo "🎉 Setup complete! Containers are created. Please log out and back in for all changes to take effect."
