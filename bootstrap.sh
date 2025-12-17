@@ -8,27 +8,26 @@
 set -e # Exit immediately if a command exits with a non-zero status
 
 # --- 0. IDEMPOTENCY CHECK ---
-# If this file exists, we assume the heavy lifting is done.
 if [ -f "$HOME/.provisioning_complete" ]; then
     echo ">>> Container already provisioned. Skipping bootstrap."
     exit 0
 fi
 
-echo ">>> [BOOTSTRAP] Starting provisioning for user: $USER"
+echo ">>> [BOOTSTRAP] Starting provisioning for user: $USER (Host: $HOSTNAME)"
 
 # --- 1. CORE DIRECTORIES ---
 mkdir -p "$HOME/.local/bin" "$HOME/.local/share" "$HOME/.config" "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
 
 # --- 2. SSH KEYS FIX ---
-# Since we isolate /home, ensure copied keys (if any) have correct permissions
+# Fix permissions for keys mapped from host
 if [ -f "$HOME/.ssh/id_ed25519" ] || [ -f "$HOME/.ssh/id_rsa" ]; then
     chmod 600 "$HOME/.ssh/id_"*
     chmod 644 "$HOME/.ssh/id_"*.pub 2>/dev/null || true
     echo ">>> [SSH] Fixed key permissions."
 fi
 
-# --- 3. SYSTEM TOOLS (USER LEVEL) ---
+# --- 3. SYSTEM TOOLS ---
 
 # > LAZYGIT
 if [ ! -f "$HOME/.local/bin/lazygit" ]; then
@@ -64,7 +63,6 @@ if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
 fi
 
 # --- 5. SHELL SETUP (ZSH & OMZ) ---
-# Assumes Zsh is installed by distrobox.ini packages
 
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
     echo ">>> [SHELL] Installing Oh My Zsh..."
@@ -112,7 +110,7 @@ fi
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
 
-# ESP32 / Embedded Rust
+# ESP32 / Embedded Rust (Only loads if file exists)
 [ -f "$HOME/export-esp.sh" ] && source "$HOME/export-esp.sh"
 
 # Fix Locale
@@ -120,7 +118,7 @@ export LANG=en_US.UTF-8
 EOF
 fi
 
-# --- 6. LANGUAGES & RUNTIMES ---
+# --- 6. GENERAL LANGUAGES (For all containers) ---
 
 # > SDKMAN (Java/Gradle)
 if [ ! -d "$HOME/.sdkman" ]; then
@@ -129,7 +127,6 @@ if [ ! -d "$HOME/.sdkman" ]; then
     source "$HOME/.sdkman/bin/sdkman-init.sh"
     
     echo ">>> [LANG] Installing Java (GraalVM)..."
-    # Installs latest GraalVM CE available
     GRAAL_VER=$(sdk list java | grep "graalce" | head -n 1 | cut -d"|" -f6 | tr -d " " || true)
     sdk install java "$GRAAL_VER" || true
     sdk install gradle || true
@@ -144,25 +141,39 @@ if ! command -v rustup &> /dev/null; then
     source "$HOME/.cargo/env"
 fi
 
-# --- 7. EMBEDDED SPECIFIC (Conditional) ---
-# We check if we are in an embedded container by looking for 'libudev' or 'systemd-devel'
-# which are usually only in your embedded containers, OR we just check if espup is missing.
+# --- 7. EMBEDDED RUST (Exclusive to 'esp-rust' container) ---
 
-if ! command -v espup &> /dev/null; then
-    echo ">>> [EMBEDDED] Installing ESP32 Rust Toolchain..."
-    # Install helpers
-    cargo install espup
-    cargo install ldproxy
-    cargo install espflash
-    
-    # Install the actual Espressif toolchains (clang/llvm for Xtensa)
+if [[ "$HOSTNAME" == "esp-rust" ]]; then
+    echo ">>> [EMBEDDED] Detected 'esp-rust' container. Starting Specialized Setup..."
+
+    # A. Install cargo-binstall (Essential for speed)
+    if ! command -v cargo-binstall &> /dev/null; then
+        echo ">>> [EMBEDDED] Installing cargo-binstall..."
+        curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+    fi
+
+    # B. Install espup (Toolchain Installer)
+    if ! command -v espup &> /dev/null; then
+        echo ">>> [EMBEDDED] Installing espup..."
+        cargo binstall -y espup
+    fi
+
+    # C. Run espup install (Downloads Clang, GCC for Xtensa, etc)
     if [ ! -f "$HOME/export-esp.sh" ]; then
-        echo ">>> [EMBEDDED] Running espup install (this may take time)..."
+        echo ">>> [EMBEDDED] Running espup install (this downloads the compilers)..."
         espup install
     fi
+
+    # D. Install Helper Tools (Flash, Generate, Proxy)
+    # Using binstall here saves ~15 minutes of compile time
+    echo ">>> [EMBEDDED] Installing espflash, cargo-generate, ldproxy..."
+    cargo binstall -y cargo-generate espflash ldproxy
+
+    echo ">>> [EMBEDDED] Environment Ready."
+else
+    echo ">>> [BOOTSTRAP] Skipping Embedded Setup (Hostname is not 'esp-rust')"
 fi
 
 # --- 8. FINALIZATION ---
 touch "$HOME/.provisioning_complete"
 echo ">>> [BOOTSTRAP] Setup Complete! Please restart your shell or type 'zsh'."
-
