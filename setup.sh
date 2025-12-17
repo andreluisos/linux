@@ -152,11 +152,6 @@ if [ -f "$HOME/.zshrc" ]; then
 # --- TOOLBOX_CUSTOM_CONFIG ---
 export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$HOME/.cargo/bin:$PATH
 
-# SSH Agent (Keychain)
-if command -v keychain >/dev/null 2>&1; then
-    eval $(keychain --eval --quiet)
-fi
-
 # SDKMAN
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
@@ -238,6 +233,81 @@ if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
 else
     echo "✅ TPM already installed."
 fi
+
+# --- 12. ESP Tools Installation ---
+echo "Setting up ESP tools..."
+
+# A. Install cargo-binstall (Essential for speed)
+if ! command -v cargo-binstall &> /dev/null; then
+    echo "📥 Installing cargo-binstall..."
+    curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+    echo "✅ cargo-binstall installed."
+else
+    echo "✅ cargo-binstall already installed."
+fi
+
+# B. Install espup (Toolchain Installer)
+if ! command -v espup &> /dev/null; then
+    echo "📥 Installing espup..."
+    cargo binstall -y espup
+    echo "✅ espup installed."
+else
+    echo "✅ espup already installed."
+fi
+
+# C. Run espup install (Downloads Clang, GCC for Xtensa, etc)
+if [ ! -f "$HOME/export-esp.sh" ]; then
+    echo "📥 Running espup install (this downloads the compilers)..."
+    espup install
+    echo "✅ espup install completed."
+else
+    echo "✅ ESP toolchain already installed."
+fi
+
+# D. Install Helper Tools (Flash, Generate, Proxy)
+echo "📥 Installing espflash, cargo-generate, ldproxy..."
+cargo binstall -y cargo-generate espflash ldproxy
+echo "✅ ESP tools installed."
+
+# --- 13. OpenCode Installation ---
+if ! command -v opencode &> /dev/null; then
+    echo "📥 Installing OpenCode..."
+    curl -fsSL https://opencode.ai/install | bash
+    echo "✅ OpenCode installed."
+else
+    echo "✅ OpenCode already installed."
+fi
+
+# Configure OpenCode
+echo "📥 Configuring OpenCode..."
+mkdir -p "$HOME/.config/opencode"
+cat > "$HOME/.config/opencode/opencode.json" << "OPENCODE_EOF"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": {
+    "typescript": { "disabled": true },
+    "deno": { "disabled": true },
+    "eslint": { "disabled": true },
+    "gopls": { "disabled": true },
+    "ruby-lsp": { "disabled": true },
+    "pyright": { "disabled": true },
+    "elixir-ls": { "disabled": true },
+    "zls": { "disabled": true },
+    "csharp": { "disabled": true },
+    "vue": { "disabled": true },
+    "rust": { "disabled": true },
+    "clangd": { "disabled": true },
+    "svelte": { "disabled": true },
+    "astro": { "disabled": true },
+    "yaml-ls": { "disabled": true },
+    "jdtls": { "disabled": true },
+    "lua-ls": { "disabled": true },
+    "sourcekit-lsp": { "disabled": true },
+    "php": { "disabled": true }
+  }
+}
+OPENCODE_EOF
+echo "✅ OpenCode configured."
 
 echo ""
 echo "🎉 Setup complete!"
