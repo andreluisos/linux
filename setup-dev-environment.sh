@@ -91,16 +91,21 @@ if [[ "$MODE" == "CREATE" || "$MODE" == "RECREATE" ]]; then
         echo "Adding extra arguments: $ADDITIONAL_ARGS"
     fi
 
-    podman run -d --name $CONTAINER \
+    podman run -d \
+      --name $CONTAINER \
       --network=host \
       --userns=keep-id \
-      --init \
-      --group-add keep-groups \
+      --security-opt label=disable \
       -p 6000:6000 \
       $STORAGE_ARGS \
       $ADDITIONAL_ARGS \
-      fedora:latest \
-      sleep infinity
+      -v $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY:/run/user/1000/wayland-0 \
+      -e WAYLAND_DISPLAY=wayland-0 \
+      -e XDG_RUNTIME_DIR=/run/user/1000 \
+      -e GDK_BACKEND=wayland \
+      -e QT_QPA_PLATFORM=wayland \
+      --device /dev/dri \
+      docker.io/library/fedora:latest sleep infinity
 fi
 
 # --- Mode: CREATE, RECREATE, or UPDATE ---
