@@ -5,6 +5,6 @@ sudo firewall-cmd --zone=FedoraWorkstation --permanent --remove-port=1025-65535/
 sudo firewall-cmd --reload
 sudo rpm-ostree install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 # Reboot
-rpm-ostree install intel-media-driver gtk4-devel gtk4-layer-shell-devel libvirt-daemon-config-network libvirt-daemon-kvm  qemu-kvm zsh lm_sensors
+rpm-ostree install intel-media-driver neovim gtk4-devel gtk4-layer-shell-devel libvirt-daemon-config-network libvirt-daemon-kvm qemu-kvm zsh lm_sensors
 sudo usermod -aG libvirt $USER
 sudo systemctl enable --now libvirtd virtnetworkd-ro.socket
