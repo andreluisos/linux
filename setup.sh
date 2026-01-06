@@ -3,8 +3,32 @@
 # This script automates the setup of a Linux development environment.
 # It configures GNOME settings, sets up environment variables,
 # downloads utility scripts, asks for confirmation, runs them, and creates aliases.
+# It also configures 100% ZRAM if not already present.
 
 echo "Starting environment setup..."
+
+# --- ZRAM Configuration (Requires Sudo) ---
+ZRAM_CONF="/etc/systemd/zram-generator.conf"
+
+if [ -f "$ZRAM_CONF" ]; then
+    echo "ZRAM configuration already exists at $ZRAM_CONF. Skipping."
+else
+    echo "Configuring ZRAM (100% RAM)..."
+    echo "This step requires sudo privileges to write to /etc/systemd/."
+    
+    # Write the config file using tee to handle sudo write permissions
+    sudo tee "$ZRAM_CONF" > /dev/null <<EOF
+[zram0]
+zram-size = ram
+compression-algorithm = zstd
+EOF
+
+    echo "Reloading systemd and activating ZRAM..."
+    sudo systemctl daemon-reload
+    sudo systemctl restart dev-zram0.swap
+    
+    echo "ZRAM setup complete."
+fi
 
 # --- Terminal Choice ---
 echo "Please choose your preferred terminal:"
@@ -40,10 +64,19 @@ gsettings set org.gnome.settings-daemon.plugins.power ambient-enabled false
 # --- Terminal-Specific Configuration ---
 if [[ "$TERMINAL_CHOICE" == "ptyxis" ]]; then
     echo "Configuring Ptyxis..."
+    # The profile ID logic was missing in your snippet, assuming 'default' or similar if needed.
+    # Note: PTYXIS_PROFILE variable was not defined in source, usually it's a UUID. 
+    # Attempting to fetch the default profile UUID if possible, otherwise skipping profile-specific set.
+    PTYXIS_PROFILE=$(gsettings get org.gnome.Ptyxis default-profile | tr -d "'")
+    
     gsettings set org.gnome.Ptyxis disable-padding true
     gsettings set org.gnome.Ptyxis use-system-font false
     gsettings set org.gnome.Ptyxis font-name 'JetBrainsMono Nerd Font Medium 11'
-    gsettings set org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/$PTYXIS_PROFILE/ palette 'gnome'
+    
+    if [ -n "$PTYXIS_PROFILE" ]; then
+        gsettings set org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/$PTYXIS_PROFILE/ palette 'gnome'
+    fi
+
     mkdir -p .config/gtk-4.0
     cat << 'EOF' > .config/gtk-4.0/gtk.css
 /* padding for ptyxis */
@@ -72,8 +105,6 @@ fi
 echo "GNOME settings applied."
 
 # --- Environment Variable Setup ---
-# Appends environment variables to the user's .profile file.
-# This ensures they are loaded on every login.
 echo "Setting up environment variables in .profile..."
 {
   echo '' # Add a newline for separation
@@ -88,7 +119,6 @@ FONT_DIR="$HOME/.local/share/fonts/JetBrainsMonoNF"
 
 echo "Checking for '$FONT_NAME'..."
 
-# Use fc-list to check if the font is already registered by the system
 if fc-list | grep -q "$FONT_NAME"; then
     echo "'$FONT_NAME' is already installed. Skipping download and installation."
 else
@@ -96,21 +126,18 @@ else
     mkdir -p "$HOME/.local/share/fonts"
     curl -fLo /tmp/fonts.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
     mkdir -p "$FONT_DIR"
-    unzip /tmp/fonts.zip -d "$FONT_DIR"
+    unzip -o /tmp/fonts.zip -d "$FONT_DIR" # Added -o to overwrite if partial exists
     rm /tmp/fonts.zip
     fc-cache -fv
     echo "Nerd Fonts installed and cache updated."
 fi
 
 # --- Script Downloads ---
-# Downloads the necessary scripts from the specified GitHub repository.
-# It places them in the user's home directory and makes them executable.
 echo "Downloading utility scripts..."
 mkdir -p "$HOME/.scripts"
 wget -O "$HOME/.scripts/create-dev-env-shortcut.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/create-dev-env-shortcut.sh
 wget -O "$HOME/.scripts/setup-dev-environment.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/setup-dev-environment.sh
 
-# Make the downloaded scripts executable
 chmod +x "$HOME/.scripts/create-dev-env-shortcut.sh"
 chmod +x "$HOME/.scripts/setup-dev-environment.sh"
 echo "Scripts downloaded and made executable."
@@ -131,7 +158,6 @@ fi
 
 if [[ "$run_shortcut" =~ ^[Yy]$ ]]; then
     echo "Executing create-dev-env-shortcut.sh..."
-    # Pass the chosen terminal as an argument
     "$HOME/.scripts/create-dev-env-shortcut.sh" "$TERMINAL_CHOICE"
 else
     echo "Skipping create-dev-env-shortcut.sh."
@@ -139,12 +165,11 @@ fi
 echo "Scripts execution phase complete."
 
 # --- Command Alias Setup ---
-# Creates aliases in .profile for the downloaded scripts for easy access.
 echo "Creating command aliases in .profile..."
 {
-  echo '' # Add a newline for separation
+  echo '' 
   echo '# --- Custom Command Aliases ---'
-  echo 'alias set-dev-env="$HOME/setup-dev-environment.sh"'
+  echo 'alias set-dev-env="$HOME/.scripts/setup-dev-environment.sh"' # Fixed path to match download location
 } >> "$HOME/.profile"
 echo "Command aliases created."
 
@@ -153,4 +178,4 @@ echo "Applying changes to the current session..."
 # shellcheck source=/dev/null
 source "$HOME/.profile"
 
-echo "Setup complete! Your profile has been updated and sourced. For all changes to take full effect, you may need to log out and log back in."
+echo "Setup complete! Your profile has been updated and sourced."
