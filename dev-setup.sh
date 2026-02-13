@@ -298,6 +298,9 @@ OPENCODE_EOF
     sudo loginctl enable-linger $(whoami)
     mkdir -p "$HOME/.config/systemd/user"
 
+    # Use NVIM_PORT environment variable, default to 6000
+    NVIM_PORT="${NVIM_PORT:-6000}"
+
     cat > "$HOME/.config/systemd/user/nvim-server.service" <<SERVICE
 [Unit]
 Description=Neovim Headless (TCP)
@@ -305,7 +308,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/nvim --headless --listen 127.0.0.1:6000
+ExecStart=/usr/bin/nvim --headless --listen 127.0.0.1:${NVIM_PORT}
 Restart=always
 RestartSec=3
 
@@ -320,8 +323,8 @@ SERVICE
     echo "=========================================="
     echo "✅ SETUP COMPLETE!"
     echo "=========================================="
-    echo "Neovim server: 127.0.0.1:6000"
-    echo "Connect with: neovide --server 127.0.0.1:6000"
+    echo "Neovim server: 127.0.0.1:${NVIM_PORT}"
+    echo "Connect with: neovide --server 127.0.0.1:${NVIM_PORT}"
     echo ""
 }
 
