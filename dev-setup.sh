@@ -238,6 +238,17 @@ ZSHRC_EOF
     curl -s "https://get.sdkman.io" | bash
     source "$HOME/.sdkman/bin/sdkman-init.sh"
 
+    # Ensure SDKMAN initialization is in .zshrc
+    if ! grep -q "sdkman-init.sh" "$HOME/.zshrc"; then
+        echo "==> Adding SDKMAN initialization to .zshrc..."
+        cat >> "$HOME/.zshrc" << 'SDKMAN_EOF'
+
+# SDKMAN initialization
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+SDKMAN_EOF
+    fi
+
     # 12. Install GraalVM and Gradle via SDKMAN!
     echo "==> Installing GraalVM CE..."
     GRAALVM_IDENTIFIER=$(sdk list java | grep "graalce" | head -n 1 | cut -d"|" -f6 | tr -d " ")
@@ -295,7 +306,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/nvim --headless --listen 127.0.0.1:${NVIM_PORT}
+ExecStart=/usr/bin/zsh -c 'source ~/.zshrc && exec nvim --headless --listen 127.0.0.1:${NVIM_PORT}'
 Restart=always
 RestartSec=3
 
