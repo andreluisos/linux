@@ -68,6 +68,10 @@ root_setup() {
         chmod 0440 "/etc/sudoers.d/$USERNAME"
     fi
 
+    # 7.1 Fix sudo package permissions (rootless podman user namespace issue)
+    echo "==> Fixing sudo file permissions..."
+    dnf reinstall -y sudo
+
     # 8. Initialize home directory from skeleton
     echo "==> Initializing home directory..."
     cp -rT /etc/skel/ "/home/$USERNAME/" 2>/dev/null || true
