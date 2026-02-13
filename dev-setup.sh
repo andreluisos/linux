@@ -305,7 +305,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/nvim --headless --listen 127.0.0.1:6666
+ExecStart=/usr/bin/nvim --headless --listen 127.0.0.1:6000
 Restart=always
 RestartSec=3
 
@@ -320,8 +320,8 @@ SERVICE
     echo "=========================================="
     echo "✅ SETUP COMPLETE!"
     echo "=========================================="
-    echo "Neovim server: 127.0.0.1:6666"
-    echo "Connect with: neovide --server 127.0.0.1:6666"
+    echo "Neovim server: 127.0.0.1:6000"
+    echo "Connect with: neovide --server 127.0.0.1:6000"
     echo ""
 }
 
