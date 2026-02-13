@@ -72,17 +72,27 @@ echo "🔄 Removing existing '$CONTAINER_NAME' container (if exists)..."
 distrobox rm "$CONTAINER_NAME" --force 2>/dev/null || true
 
 echo "📦 Creating new '$CONTAINER_NAME' container..."
+
+# Setup SSH agent forwarding
+SSH_AGENT_VOLUME=""
+if [ -n "$SSH_AUTH_SOCK" ]; then
+    echo "🔐 SSH agent detected, setting up agent forwarding..."
+    SSH_AGENT_VOLUME="--volume $SSH_AUTH_SOCK:/ssh-agent:ro"
+fi
+
 # We only include systemd here - all other packages will be installed by setup.sh
 if [ -n "$HOME_FLAG" ]; then
     distrobox create --name "$CONTAINER_NAME" --yes \
       --image fedora:latest \
       --init \
       $HOME_FLAG \
+      $SSH_AGENT_VOLUME \
       --additional-packages "systemd"
 else
     distrobox create --name "$CONTAINER_NAME" --yes \
       --image fedora:latest \
       --init \
+      $SSH_AGENT_VOLUME \
       --additional-packages "systemd"
 fi
 

@@ -42,7 +42,7 @@ root_setup() {
     # 3. Install standard packages
     echo "==> Installing development packages..."
     dnf install -y git zsh curl util-linux-user unzip fontconfig nvim tmux tzdata \
-      lm_sensors keychain fd-find fzf luarocks wget procps-ng openssl-devel \
+      lm_sensors fd-find fzf luarocks wget procps-ng openssl-devel \
       @development-tools rustup
 
     # 4. Locale Configuration
@@ -81,29 +81,14 @@ root_setup() {
         chsh -s "$ZSH_PATH" "$USERNAME" 2>/dev/null || usermod -s "$ZSH_PATH" "$USERNAME" 2>/dev/null || true
     fi
 
-    # 10. SSH Keys - Copy from host
-    echo "==> Configuring SSH keys..."
+    # 10. SSH Agent Forwarding - Configure environment
+    echo "==> Configuring SSH agent forwarding..."
     mkdir -p "/home/$USERNAME/.ssh"
     chown "$USERNAME:$USERNAME" "/home/$USERNAME/.ssh"
     chmod 700 "/home/$USERNAME/.ssh"
-
-    # Find and copy SSH keys from common locations
-    HOST_SSH_DIR="/var/home/$USERNAME/.ssh"
-    if [ -d "$HOST_SSH_DIR" ]; then
-        for key_type in id_rsa id_ed25519 id_ecdsa; do
-            if [ -f "$HOST_SSH_DIR/$key_type" ]; then
-                echo "==> Copying $key_type..."
-                cp "$HOST_SSH_DIR/$key_type" "/home/$USERNAME/.ssh/$key_type"
-                chown "$USERNAME:$USERNAME" "/home/$USERNAME/.ssh/$key_type"
-                chmod 600 "/home/$USERNAME/.ssh/$key_type"
-            fi
-            if [ -f "$HOST_SSH_DIR/${key_type}.pub" ]; then
-                cp "$HOST_SSH_DIR/${key_type}.pub" "/home/$USERNAME/.ssh/${key_type}.pub"
-                chown "$USERNAME:$USERNAME" "/home/$USERNAME/.ssh/${key_type}.pub"
-                chmod 644 "/home/$USERNAME/.ssh/${key_type}.pub"
-            fi
-        done
-    fi
+    
+    # Note: SSH agent socket is mounted at /ssh-agent by the host setup script
+    # We'll configure it in .zshrc later in the user setup phase
 
     echo "==> Root setup complete."
 }
@@ -227,11 +212,13 @@ NVIM_SHELL_EOF
     # Add compinit if not present
     grep -qxF "autoload -U compinit && compinit" "$HOME/.zshrc" || echo "autoload -U compinit && compinit" >> "$HOME/.zshrc"
 
-    # Add keychain loader
-    grep -qF "keychain --eval" "$HOME/.zshrc" || cat >> "$HOME/.zshrc" << 'ZSHRC_EOF'
+    # Configure SSH agent forwarding
+    grep -qF "SSH_AUTH_SOCK" "$HOME/.zshrc" || cat >> "$HOME/.zshrc" << 'ZSHRC_EOF'
 
-# Load SSH keys
-eval $(keychain --eval --quiet $(grep -srlF -e "PRIVATE KEY" ~/.ssh))
+# SSH Agent Forwarding (from host)
+if [ -S "/ssh-agent" ]; then
+    export SSH_AUTH_SOCK="/ssh-agent"
+fi
 ZSHRC_EOF
 
     # 10. Install Rust
