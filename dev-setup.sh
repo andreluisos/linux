@@ -71,6 +71,18 @@ root_setup() {
     # 7.1 Fix sudo package permissions (rootless podman user namespace issue)
     echo "==> Fixing sudo file permissions..."
     dnf reinstall -y sudo
+    
+    # 7.2 Manually fix ownership (dnf reinstall doesn't fix ownership in rootless containers)
+    echo "==> Correcting sudo ownership and permissions..."
+    chown 0:0 /etc/sudo.conf /etc/sudoers /usr/bin/sudo /usr/bin/sudoedit /usr/bin/sudoreplay /usr/bin/cvtsudoers /usr/bin/visudo 2>/dev/null || true
+    chown -R 0:0 /etc/sudoers.d/ 2>/dev/null || true
+    chmod 4111 /usr/bin/sudo
+    chmod 0111 /usr/bin/sudoedit /usr/bin/sudoreplay 2>/dev/null || true
+    chmod 0755 /usr/bin/cvtsudoers /usr/bin/visudo 2>/dev/null || true
+    chmod 0640 /etc/sudo.conf
+    chmod 0440 /etc/sudoers
+    chmod 0750 /etc/sudoers.d
+    chmod 0440 /etc/sudoers.d/* 2>/dev/null || true
 
     # 8. Initialize home directory from skeleton
     echo "==> Initializing home directory..."
