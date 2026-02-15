@@ -307,38 +307,12 @@ SDKMAN_EOF
 }
 OPENCODE_EOF
 
-    # 15. Configure Neovim Service (TCP VERSION)
-    echo "==> Configuring Neovim Systemd Service (TCP)..."
-    sudo loginctl enable-linger $(whoami)
-    mkdir -p "$HOME/.config/systemd/user"
-
-    # Use NVIM_PORT environment variable, default to 6000
-    NVIM_PORT="${NVIM_PORT:-6000}"
-
-    cat > "$HOME/.config/systemd/user/nvim-server.service" <<SERVICE
-[Unit]
-Description=Neovim Headless (TCP)
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/zsh -c 'source ~/.zshrc && exec nvim --headless --listen 127.0.0.1:${NVIM_PORT}'
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=default.target
-SERVICE
-
-    systemctl --user daemon-reload
-    systemctl --user enable --now nvim-server
-
     echo ""
     echo "=========================================="
     echo "✅ SETUP COMPLETE!"
     echo "=========================================="
-    echo "Neovim server: 127.0.0.1:${NVIM_PORT}"
-    echo "Connect with: neovide --server 127.0.0.1:${NVIM_PORT}"
+    echo "Container is ready for development!"
+    echo "Neovim will start on-demand when you launch Neovide."
     echo ""
 }
 

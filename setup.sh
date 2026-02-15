@@ -84,16 +84,12 @@ fi
 if [ -n "$HOME_FLAG" ]; then
     distrobox create --name "$CONTAINER_NAME" --yes \
       --image fedora:latest \
-      --init \
       $HOME_FLAG \
-      $SSH_AGENT_VOLUME \
-      --additional-packages "systemd"
+      $SSH_AGENT_VOLUME
 else
     distrobox create --name "$CONTAINER_NAME" --yes \
       --image fedora:latest \
-      --init \
-      $SSH_AGENT_VOLUME \
-      --additional-packages "systemd"
+      $SSH_AGENT_VOLUME
 fi
 
 echo "🚀 Starting container (this will take a few minutes)..."
@@ -123,23 +119,58 @@ fi
 echo "🔧 Downloading and running setup script from GitHub..."
 podman exec -u root "$CONTAINER_NAME" bash -c "export NVIM_PORT=$NVIM_PORT && curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/dev-setup.sh | bash"
 
-echo "⏳ Waiting for Neovim server to start..."
-sleep 5
+echo "✅ Container setup complete!"
 
-# Verify Neovim server is running
-if podman exec "$CONTAINER_NAME" ss -tlnp | grep -q "$NVIM_PORT"; then
-    echo "✅ Neovim server is running on 127.0.0.1:$NVIM_PORT"
-else
-    echo "⚠️  Neovim server may not be ready yet. You can check with:"
-    echo "   podman exec $CONTAINER_NAME ss -tlnp | grep $NVIM_PORT"
+# Create wrapper script for launching Neovide
+echo ""
+echo "🔧 Creating Neovide launcher script..."
+
+WRAPPER_SCRIPT="$HOME/.local/bin/neovide-$CONTAINER_NAME"
+mkdir -p "$HOME/.local/bin"
+
+cat > "$WRAPPER_SCRIPT" <<'WRAPPER_EOF'
+#!/bin/bash
+# Neovide launcher for CONTAINER_NAME_PLACEHOLDER container
+# Auto-starts nvim server if not running, then connects Neovide
+
+CONTAINER="CONTAINER_NAME_PLACEHOLDER"
+PORT="NVIM_PORT_PLACEHOLDER"
+
+# Check if nvim is already running on the port (check from host)
+if ! ss -tlnp 2>/dev/null | grep -q "127.0.0.1:$PORT"; then
+    echo "Starting nvim server in container..."
+    # Start nvim in background with proper environment (source .zshrc for SDKMAN)
+    distrobox enter "$CONTAINER" -- zsh -c "source ~/.zshrc && exec nvim --headless --listen 127.0.0.1:$PORT" &
+    
+    # Wait for server to be ready
+    echo "Waiting for nvim server to start..."
+    for i in {1..10}; do
+        sleep 1
+        if ss -tlnp 2>/dev/null | grep -q "127.0.0.1:$PORT"; then
+            echo "Nvim server is ready!"
+            break
+        fi
+    done
 fi
+
+# Launch Neovide
+echo "Launching Neovide..."
+exec neovide --server "127.0.0.1:$PORT"
+WRAPPER_EOF
+
+# Replace placeholders
+sed -i "s/CONTAINER_NAME_PLACEHOLDER/$CONTAINER_NAME/g" "$WRAPPER_SCRIPT"
+sed -i "s/NVIM_PORT_PLACEHOLDER/$NVIM_PORT/g" "$WRAPPER_SCRIPT"
+
+chmod +x "$WRAPPER_SCRIPT"
+echo "✅ Created launcher script at: $WRAPPER_SCRIPT"
 
 # Create Neovide shortcut
 echo ""
 echo "🔧 Creating Neovide keyboard shortcut..."
 
 SHORTCUT_NAME="Launch $CONTAINER_NAME Neovide"
-CMD_NEOVIDE="neovide --server 127.0.0.1:$NVIM_PORT"
+CMD_NEOVIDE="$WRAPPER_SCRIPT"
 
 BASE_GSETTINGS_PATH="org.gnome.settings-daemon.plugins.media-keys"
 KEYBINDING_LIST_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
@@ -193,11 +224,14 @@ echo "=========================================="
 echo ""
 echo "Container:      $CONTAINER_NAME"
 echo "Home directory: $CONTAINER_HOME"
-echo "Neovim server:  127.0.0.1:$NVIM_PORT"
+echo "Launcher:       $WRAPPER_SCRIPT"
 echo ""
-echo "To connect with Neovide:"
+echo "To launch Neovide:"
 echo "  - Use keyboard shortcut: $KEY_BINDING"
-echo "  - Or run: neovide --server 127.0.0.1:$NVIM_PORT"
+echo "  - Or run: $WRAPPER_SCRIPT"
+echo ""
+echo "Note: Neovim server will start automatically on-demand"
+echo "      when you launch Neovide for the first time."
 echo ""
 echo "To enter the container, run:"
 echo "  distrobox enter $CONTAINER_NAME"
