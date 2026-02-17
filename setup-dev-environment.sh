@@ -169,6 +169,16 @@ if [ -d "$HOST_SSH_DIR" ]; then
 fi
 export CHMOD_COMMANDS
 
+# --- Copy tmux configuration files into container ---
+echo "Copying tmux configuration files..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/tmux" ]; then
+    podman cp "$SCRIPT_DIR/tmux" "$CONTAINER:/tmp/tmux"
+fi
+if [ -f "$SCRIPT_DIR/status.sh" ]; then
+    podman cp "$SCRIPT_DIR/status.sh" "$CONTAINER:/tmp/status.sh"
+fi
+
 # --- Run setup commands as the user ---
 echo "Configuring user environment in '$CONTAINER'..."
 # We pass CHMOD_COMMANDS as an environment variable to be executed inside
@@ -197,9 +207,18 @@ git clone https://github.com/andreluisos/nvim.git .config/nvim
 
 # --- Download Tmux configuration ---
 mkdir -p .config/tmux
-curl -fLo .config/tmux/tmux.conf https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux
-curl -fLo .config/tmux/status.sh https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh
-chmod +x .config/tmux/status.sh
+
+# Copy from /tmp (files were copied by host script)
+if [ -f "/tmp/tmux" ]; then
+    cp /tmp/tmux .config/tmux/tmux.conf
+    rm /tmp/tmux
+fi
+
+if [ -f "/tmp/status.sh" ]; then
+    cp /tmp/status.sh .config/tmux/status.sh
+    chmod +x .config/tmux/status.sh
+    rm /tmp/status.sh
+fi
 
 if [ ! -d ".tmux/plugins/tpm" ]; then
     git clone https://github.com/tmux-plugins/tpm .tmux/plugins/tpm

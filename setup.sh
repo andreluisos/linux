@@ -116,8 +116,12 @@ if [ $ELAPSED -ge $TIMEOUT ]; then
     exit 1
 fi
 
-echo "🔧 Downloading and running setup script from GitHub..."
-podman exec -u root "$CONTAINER_NAME" bash -c "export NVIM_PORT=$NVIM_PORT && curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/dev-setup.sh | bash"
+echo "🔧 Copying and running setup script..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+podman cp "$SCRIPT_DIR/dev-setup.sh" "$CONTAINER_NAME:/tmp/dev-setup.sh"
+podman cp "$SCRIPT_DIR/tmux" "$CONTAINER_NAME:/tmp/tmux"
+podman cp "$SCRIPT_DIR/status.sh" "$CONTAINER_NAME:/tmp/status.sh"
+podman exec -u root "$CONTAINER_NAME" bash -c "export NVIM_PORT=$NVIM_PORT && bash /tmp/dev-setup.sh && rm /tmp/dev-setup.sh"
 
 echo "✅ Container setup complete!"
 

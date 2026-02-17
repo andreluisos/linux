@@ -182,9 +182,16 @@ NVIM_SHELL_EOF
     # 6. Tmux Configuration
     echo "==> Setting up Tmux configuration..."
     mkdir -p "$HOME/.config/tmux"
-    curl -fLo "$HOME/.config/tmux/tmux.conf" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux
-    curl -fLo "$HOME/.config/tmux/status.sh" https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh
-    chmod +x "$HOME/.config/tmux/status.sh"
+    # Note: Files are copied by the host setup script into /tmp
+    if [ -f "/tmp/tmux" ]; then
+        cp /tmp/tmux "$HOME/.config/tmux/tmux.conf"
+        rm /tmp/tmux
+    fi
+    if [ -f "/tmp/status.sh" ]; then
+        cp /tmp/status.sh "$HOME/.config/tmux/status.sh"
+        chmod +x "$HOME/.config/tmux/status.sh"
+        rm /tmp/status.sh
+    fi
 
     if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
         echo "==> Installing Tmux Plugin Manager..."
