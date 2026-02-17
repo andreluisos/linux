@@ -1,0 +1,6 @@
+/* padding for ptyxis */
+VteTerminal,
+ TerminalScreen,
+ vte-terminal {
+     padding: 0;
+}
