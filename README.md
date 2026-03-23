@@ -11,6 +11,39 @@ Automated setup for a Fedora-based distrobox container with full development env
 - **Zsh** - Default shell
 - **SDKMAN** - Java/JVM development
 - **Rust** - Via rustup
+- **Podman** - For running nested containers (see "Nested Containers" section)
+
+### Nested Containers
+Run containers inside the dev container for testing and development:
+- **Podman, Buildah, Skopeo** - Full container tooling
+- **Fuse-overlayfs** - Unprivileged overlay filesystem
+- **Rootful mode** - Use `sudo podman` for nested containers
+- Network options: `--network=host` or `--network=none`
+
+**Example usage:**
+```bash
+# Enter the dev container
+distrobox enter dev
+
+# Run a test container
+sudo podman run --rm --network=host hello-world
+
+# Run Fedora container
+sudo podman run --rm --network=host fedora:latest echo "Hello from nested container"
+
+# Build an image
+sudo podman build -t myimage .
+
+# Run with volume mounts
+sudo podman run --rm --network=host -v $(pwd):/work myimage
+```
+
+**Important notes:**
+- Rootless podman (`podman` without sudo) doesn't work due to nested user namespace limitations
+- Always use `sudo podman` for nested containers
+- Use `--network=host` for containers that need network access
+- Use `--network=none` for isolated containers
+- Minor cgroup warnings are normal and don't affect functionality
 
 ### Tmux Configuration
 - 256-color support with RGB/truecolor

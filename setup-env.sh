@@ -57,7 +57,34 @@ dnf install -y \
     procps-ng \
     openssl-devel \
     @development-tools \
-    rustup
+    rustup \
+    podman \
+    fuse-overlayfs \
+    slirp4netns \
+    crun \
+    buildah \
+    skopeo
+
+echo "==> Configuring rootless podman for nested containers..."
+# Configure subuid and subgid ranges for rootless containers
+if ! grep -q "^$USERNAME:" /etc/subuid; then
+    echo "$USERNAME:100000:65536" >> /etc/subuid
+    echo "   Added subuid range for $USERNAME"
+else
+    echo "   subuid already configured for $USERNAME"
+fi
+
+if ! grep -q "^$USERNAME:" /etc/subgid; then
+    echo "$USERNAME:100000:65536" >> /etc/subgid
+    echo "   Added subgid range for $USERNAME"
+else
+    echo "   subgid already configured for $USERNAME"
+fi
+
+# Enable unprivileged ping (needed for slirp4netns networking)
+if [ ! -f /proc/sys/net/ipv4/ping_group_range ] || ! grep -q "0 2147483647" /proc/sys/net/ipv4/ping_group_range 2>/dev/null; then
+    echo "0 2147483647" > /proc/sys/net/ipv4/ping_group_range 2>/dev/null || true
+fi
 
 # Locale and timezone are automatically inherited from host via distrobox
 

@@ -136,6 +136,82 @@ TMUX_EOF
     echo "   Tmux alias added to .zshrc"
 fi
 
+# --- 7. Rootless Podman Configuration ---
+echo "==> Configuring rootless podman for nested containers..."
+
+# Create podman config directory
+mkdir -p "$HOME/.config/containers"
+
+# Configure storage to use fuse-overlayfs (works inside containers)
+cat > "$HOME/.config/containers/storage.conf" << 'STORAGE_EOF'
+[storage]
+driver = "overlay"
+
+[storage.options]
+# Use fuse-overlayfs for unprivileged overlay mounts
+mount_program = "/usr/bin/fuse-overlayfs"
+
+[storage.options.overlay]
+# Enable metacopy for better performance
+mountopt = "nodev,metacopy=on"
+STORAGE_EOF
+
+# Configure registries (allow pulling from common registries)
+if [ ! -f "$HOME/.config/containers/registries.conf" ]; then
+    cat > "$HOME/.config/containers/registries.conf" << 'REGISTRIES_EOF'
+unqualified-search-registries = ["docker.io", "quay.io", "registry.fedoraproject.org"]
+
+[[registry]]
+location = "docker.io"
+
+[[registry]]
+location = "quay.io"
+
+[[registry]]
+location = "registry.fedoraproject.org"
+REGISTRIES_EOF
+fi
+
+# Configure podman to use crun runtime and host user namespace
+cat > "$HOME/.config/containers/containers.conf" << 'CONTAINERS_EOF'
+[containers]
+# Use crun as the OCI runtime
+runtime = "crun"
+
+# Use cgroupfs instead of systemd for cgroup management (required for nested containers)
+cgroup_manager = "cgroupfs"
+
+# Disable user namespace remapping since we are already in a user namespace
+userns = "host"
+
+# Network backend
+network_backend = "netavark"
+
+[engine]
+# List of runtimes
+runtime = "crun"
+
+# Compose providers
+compose_providers = ["podman-compose", "docker-compose"]
+CONTAINERS_EOF
+
+# Create local storage directories
+mkdir -p "$HOME/.local/share/containers/storage"
+
+# Add podman environment to .zshrc
+if ! grep -qF "DOCKER_HOST" "$HOME/.zshrc"; then
+    cat >> "$HOME/.zshrc" << 'PODMAN_EOF'
+
+# Rootless Podman configuration
+export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
+PODMAN_EOF
+    echo "   Podman environment variables added to .zshrc"
+fi
+
+echo "   Podman storage configured with fuse-overlayfs"
+echo "   Container runtime: crun"
+echo "   Registry access: docker.io, quay.io, registry.fedoraproject.org"
+
 echo ""
 echo "=========================================="
 echo "✅ Phase 2 Complete: User Environment Ready"
