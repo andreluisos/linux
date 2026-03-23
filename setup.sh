@@ -23,11 +23,26 @@ fi
 # 2. Cleanup
 distrobox rm $CONTAINER_NAME --force 2>/dev/null || true
 
-# 3. Create Container
+# 3. Check for Podman socket
+PODMAN_SOCK="/run/user/$USER_ID/podman/podman.sock"
+VOLUME_FLAGS=""
+
+echo "==> Checking for Podman socket..."
+if [ -S "$PODMAN_SOCK" ]; then
+    VOLUME_FLAGS="--volume $PODMAN_SOCK:/run/user/1000/podman/podman.sock"
+    echo "   ✓ Podman socket found - will be forwarded to container"
+else
+    echo "   ⚠ Podman socket not found at $PODMAN_SOCK"
+    echo "   Podman functionality will not be available in container"
+    echo "   To enable: systemctl --user enable --now podman.socket"
+fi
+
+# 4. Create Container
 # SSH agent forwarding is automatic via SSH_AUTH_SOCK - no key files needed
 distrobox create --name $CONTAINER_NAME \
   --image $IMAGE \
   --home "$HOME_DIR" \
+  $VOLUME_FLAGS \
   --yes
 
 # 3.5. Copy setup scripts to container home

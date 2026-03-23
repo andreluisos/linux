@@ -8,42 +8,55 @@ Automated setup for a Fedora-based distrobox container with full development env
 - **Neovim** - Headless server running via systemd
 - **Tmux** - With custom configuration and status bar
 - **Git** - With SSH agent forwarding
+- **Podman** - Socket forwarding from host (see "Podman Socket Forwarding" section)
 - **Zsh** - Default shell
 - **SDKMAN** - Java/JVM development
 - **Rust** - Via rustup
-- **Podman** - For running nested containers (see "Nested Containers" section)
 
-### Nested Containers
-Run containers inside the dev container for testing and development:
-- **Podman, Buildah, Skopeo** - Full container tooling
-- **Fuse-overlayfs** - Unprivileged overlay filesystem
-- **Rootful mode** - Use `sudo podman` for nested containers
-- Network options: `--network=host` or `--network=none`
+### Podman Socket Forwarding
+The host's Podman socket is forwarded to the container, enabling container workflows without running a separate daemon:
+
+- **Uses host's Podman daemon** - No duplicate resource usage
+- **Shares images with host** - No duplication of container images
+- **Can build and run containers** - Full podman, buildah, skopeo support
+- **Automatic setup** - Socket forwarding configured during container creation
+
+**Enable on host:**
+```bash
+# Start the podman socket service
+systemctl --user enable --now podman.socket
+
+# Verify it's running
+systemctl --user status podman.socket
+```
 
 **Example usage:**
 ```bash
 # Enter the dev container
 distrobox enter dev
 
-# Run a test container
-sudo podman run --rm --network=host hello-world
+# Check connection to host's podman
+podman ps           # Lists containers running on host
+podman images       # Shows host's images
 
-# Run Fedora container
-sudo podman run --rm --network=host fedora:latest echo "Hello from nested container"
+# Pull an image (stored on host)
+podman pull fedora:latest
+
+# Run a container
+podman run --rm -it fedora:latest bash
 
 # Build an image
-sudo podman build -t myimage .
+podman build -t myapp .
 
 # Run with volume mounts
-sudo podman run --rm --network=host -v $(pwd):/work myimage
+podman run --rm -v $(pwd):/work myapp
 ```
 
 **Important notes:**
-- Rootless podman (`podman` without sudo) doesn't work due to nested user namespace limitations
-- Always use `sudo podman` for nested containers
-- Use `--network=host` for containers that need network access
-- Use `--network=none` for isolated containers
-- Minor cgroup warnings are normal and don't affect functionality
+- Podman socket must be enabled on host first
+- All images/containers are stored on the host
+- Changes persist across container rebuilds
+- Rootless mode on host (no sudo needed)
 
 ### Tmux Configuration
 - 256-color support with RGB/truecolor
@@ -125,6 +138,7 @@ neovide --server /tmp/nvimsocket
 - **Home:** `~/Documents/containers/dev` (isolated)
 - **Neovim Socket:** `/tmp/nvimsocket`
 - **SSH Agent:** Forwarded from host automatically
+- **Podman Socket:** Forwarded from host at `/run/user/1000/podman/podman.sock`
 
 ## Tmux Usage
 
@@ -247,6 +261,22 @@ systemctl --user restart nvim-server.service
 
 ### Tmux status bar shows wrong info
 The status bar reads from `/proc` - it shows container resource usage, not host resources. This is expected behavior in containers.
+
+### Podman not working
+```bash
+# On host - check if socket is running
+systemctl --user status podman.socket
+
+# If not running, enable it
+systemctl --user enable --now podman.socket
+
+# In container - verify socket exists
+ls -la /run/user/1000/podman/podman.sock
+
+# In container - test connection
+podman ps
+podman images
+```
 
 ## File Locations Inside Container
 
