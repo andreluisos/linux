@@ -1,195 +1,149 @@
 #!/bin/bash
-# Interactive container rebuild script
-# Creates a distrobox container with optional isolated home directory
-
 set -e
 
-# Prompt for container name
-read -p "Container name: " CONTAINER_NAME
+# --- Configuration ---
+CONTAINER_NAME="dev"
+IMAGE="fedora:latest"
+HOME_DIR="$HOME/Documents/containers/$CONTAINER_NAME"
+USER_ID=$(id -u)
+# The "Source of Truth" for your SSH Agent on the Host
+SSH_SOCK_PATH="/run/user/$USER_ID/gcr/ssh"
+NVIM_SOCKET="/tmp/nvimsocket"
 
-# Validate container name
-if [ -z "$CONTAINER_NAME" ]; then
-    echo "❌ Container name cannot be empty"
+echo "=========================================="
+echo "🚀 Starting DevBox Rebuild for $USER"
+echo "=========================================="
+
+# 1. Host Pre-check
+if ! ssh-add -l > /dev/null 2>&1; then
+    echo "❌ ERROR: No SSH identities found. Run 'ssh-add ~/.ssh/personal' on host."
     exit 1
 fi
 
-# Prompt for isolated home folder
-echo ""
-echo "Create isolated home folder?"
-echo "  yes - Creates isolated home at: $HOME/Documents/containers/${CONTAINER_NAME}"
-echo "  no  - Uses your regular home directory"
-read -p "Isolated home? (yes/no) [yes]: " USE_ISOLATED_HOME
-USE_ISOLATED_HOME=${USE_ISOLATED_HOME:-yes}
+# 2. Cleanup
+distrobox rm $CONTAINER_NAME --force 2>/dev/null || true
 
-# Determine home directory path
-if [[ "$USE_ISOLATED_HOME" =~ ^[Yy]([Ee][Ss])?$ ]]; then
-    CONTAINER_HOME="$HOME/Documents/containers/${CONTAINER_NAME}"
-    HOME_FLAG="--home $CONTAINER_HOME"
-    echo "📁 Using isolated home: $CONTAINER_HOME"
-else
-    CONTAINER_HOME="$HOME"
-    HOME_FLAG=""
-    echo "📁 Using regular home: $HOME"
-fi
+# 3. Create Container
+# SSH agent forwarding is automatic via SSH_AUTH_SOCK - no key files needed
+distrobox create --name $CONTAINER_NAME \
+  --image $IMAGE \
+  --home "$HOME_DIR" \
+  --yes
 
-# Prompt for Neovim server port
-echo ""
-read -p "Neovim server port [6000]: " NVIM_PORT
-NVIM_PORT=${NVIM_PORT:-6000}
+# 3.5. Copy setup scripts to container home
+echo "==> Copying setup scripts to container home..."
+cp "$PWD/setup-env.sh" "$HOME_DIR/"
+cp "$PWD/setup-user-env.sh" "$HOME_DIR/"
+cp "$PWD/tmux.conf" "$HOME_DIR/"
+cp "$PWD/status.sh" "$HOME_DIR/"
 
-# Validate port is a number
-if ! [[ "$NVIM_PORT" =~ ^[0-9]+$ ]]; then
-    echo "❌ Port must be a number"
-    exit 1
-fi
+# 4. Provisioning - Phase 1 (Root)
+distrobox enter $CONTAINER_NAME -- sudo "$HOME_DIR/setup-env.sh"
 
-# Prompt for keyboard shortcut
-echo ""
-read -p "Enter key binding for Neovide (e.g., '<Super>t') [<Super>t]: " KEY_BINDING
-KEY_BINDING=${KEY_BINDING:-<Super>t}
+# 5. Provisioning - Phase 2 (User)
+# Distrobox automatically forwards SSH_AUTH_SOCK from host
+echo "==> Running Phase 2: User Setup ($USER)..."
+distrobox enter $CONTAINER_NAME -- "$HOME_DIR/setup-user-env.sh"
 
-echo ""
-echo "=========================================="
-echo "Configuration Summary"
-echo "=========================================="
-echo "Container name: $CONTAINER_NAME"
-echo "Home directory: $CONTAINER_HOME"
-echo "Image:          fedora:latest"
-echo "Neovim port:    $NVIM_PORT"
-echo "Keyboard shortcut: $KEY_BINDING"
-echo "=========================================="
-echo ""
-read -p "Proceed with creation? (yes/no) [yes]: " CONFIRM
-CONFIRM=${CONFIRM:-yes}
+# 7. Neovim Service Configuration
+mkdir -p ~/.config/systemd/user/
+cat > ~/.config/systemd/user/nvim-server.service << EOF
+[Unit]
+Description=Neovim Headless Server (Distrobox: $CONTAINER_NAME)
+After=network.target
 
-if [[ ! "$CONFIRM" =~ ^[Yy]([Ee][Ss])?$ ]]; then
-    echo "❌ Cancelled"
-    exit 0
-fi
+[Service]
+Type=simple
+Environment=SSH_AUTH_SOCK=$SSH_SOCK_PATH
+ExecStartPre=/usr/bin/rm -f $NVIM_SOCKET
+ExecStart=/usr/bin/distrobox enter $CONTAINER_NAME -- /usr/bin/nvim --headless --listen $NVIM_SOCKET
+Restart=always
 
-echo ""
-echo "🔄 Removing existing '$CONTAINER_NAME' container (if exists)..."
-distrobox rm "$CONTAINER_NAME" --force 2>/dev/null || true
+[Install]
+WantedBy=default.target
+EOF
 
-echo "📦 Creating new '$CONTAINER_NAME' container..."
+systemctl --user daemon-reload
+systemctl --user enable nvim-server.service
+systemctl --user restart nvim-server.service
 
-# Setup SSH agent forwarding
-SSH_AGENT_VOLUME=""
-if [ -n "$SSH_AUTH_SOCK" ]; then
-    echo "🔐 SSH agent detected, setting up agent forwarding..."
-    SSH_AGENT_VOLUME="--volume $SSH_AUTH_SOCK:/ssh-agent:ro"
-fi
+# 8. Create GNOME Keyboard Shortcuts
+echo "==> Creating GNOME keyboard shortcuts..."
 
-# We only include systemd here - all other packages will be installed by setup.sh
-if [ -n "$HOME_FLAG" ]; then
-    distrobox create --name "$CONTAINER_NAME" --yes \
-      --image fedora:latest \
-      $HOME_FLAG \
-      $SSH_AGENT_VOLUME
-else
-    distrobox create --name "$CONTAINER_NAME" --yes \
-      --image fedora:latest \
-      $SSH_AGENT_VOLUME
-fi
+# Detect binary paths (use absolute paths for GNOME shortcuts)
+DISTROBOX_BIN=$(command -v distrobox || echo "/usr/bin/distrobox")
+PTYXIS_BIN=$(command -v ptyxis || echo "/usr/bin/ptyxis")
+NEOVIDE_BIN=$(command -v neovide || echo "/usr/bin/neovide")
 
-echo "🚀 Starting container (this will take a few minutes)..."
-echo "   Distrobox is installing basic packages..."
+# Define commands
+CMD_TERM="$PTYXIS_BIN --new-window -- $DISTROBOX_BIN enter $CONTAINER_NAME -- /bin/zsh -l -c 'cd && tmux -u'"
+CMD_NEOVIDE="$NEOVIDE_BIN --server $NVIM_SOCKET"
 
-# Start the container in the background by entering it
-distrobox enter "$CONTAINER_NAME" -- echo "Container initialized successfully" > /dev/null 2>&1
+# Function to add a GNOME shortcut
+add_gnome_shortcut() {
+    local name="$1"
+    local command="$2"
+    local binding="$3"
 
-# Wait for container to be actually running
-echo "⏳ Waiting for container to be ready..."
-TIMEOUT=120
-ELAPSED=0
-while [ $ELAPSED -lt $TIMEOUT ]; do
-    if podman exec "$CONTAINER_NAME" true 2>/dev/null; then
-        echo "✅ Container is ready!"
-        break
-    fi
-    sleep 2
-    ELAPSED=$((ELAPSED + 2))
-done
+    local base_path="org.gnome.settings-daemon.plugins.media-keys"
+    local keybinding_list_path="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
 
-if [ $ELAPSED -ge $TIMEOUT ]; then
-    echo "❌ Timeout waiting for container to start"
-    exit 1
-fi
+    # Get current list
+    local current_list=$(gsettings get $base_path custom-keybindings)
 
-echo "🔧 Downloading and running setup script from GitHub..."
-podman exec -u root "$CONTAINER_NAME" bash -c "export NVIM_PORT=$NVIM_PORT && curl -fsSL https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/dev-setup.sh | bash"
+    # Check if shortcut already exists
+    local existing_paths=$(echo "$current_list" | grep -o "'[^']*'" | tr -d "'")
+    for path in $existing_paths; do
+        local existing_name=$(gsettings get "$base_path.custom-keybinding:$path" name 2>/dev/null | tr -d "'")
+        if [[ "$existing_name" == "$name" ]]; then
+            echo "   Shortcut '$name' already exists. Skipping."
+            return 0
+        fi
+    done
 
-echo "✅ Container setup complete!"
-
-# Create Neovide shortcut with inline command
-echo ""
-echo "🔧 Creating Neovide keyboard shortcut..."
-
-SHORTCUT_NAME="Launch $CONTAINER_NAME Neovide"
-
-# Create inline bash command that checks if nvim is running, starts it if needed, then launches Neovide
-CMD_NEOVIDE="bash -c 'CONTAINER=\"$CONTAINER_NAME\"; PORT=\"$NVIM_PORT\"; if ! ss -tlnp 2>/dev/null | grep -q \"127.0.0.1:\$PORT\"; then distrobox enter \"\$CONTAINER\" -- zsh -c \"source ~/.zshrc && exec nvim --headless --listen 127.0.0.1:\$PORT\" & for i in {1..10}; do sleep 1; ss -tlnp 2>/dev/null | grep -q \"127.0.0.1:\$PORT\" && break; done; fi; exec neovide --server \"127.0.0.1:\$PORT\"'"
-
-BASE_GSETTINGS_PATH="org.gnome.settings-daemon.plugins.media-keys"
-KEYBINDING_LIST_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
-
-# Get current list
-current_list=$(gsettings get $BASE_GSETTINGS_PATH custom-keybindings)
-
-# Check if exists
-existing_paths=$(echo "$current_list" | grep -o "'[^']*'" | tr -d "'")
-shortcut_exists=false
-for path in $existing_paths; do
-    existing_name=$(gsettings get "$BASE_GSETTINGS_PATH.custom-keybinding:$path" name 2>/dev/null | tr -d "'")
-    if [[ "$existing_name" == "$SHORTCUT_NAME" ]]; then
-        echo "⚠️  Shortcut '$SHORTCUT_NAME' already exists. Skipping."
-        shortcut_exists=true
-        break
-    fi
-done
-
-if [ "$shortcut_exists" = false ]; then
-    # Find next index
-    last_index=$(echo "$current_list" | grep -o 'custom[0-9]*' | sed 's/custom//' | sort -n | tail -1)
+    # Find next available index
+    local last_index=$(echo "$current_list" | grep -o 'custom[0-9]*' | sed 's/custom//' | sort -n | tail -1)
+    
+    local new_index=0
+    local new_list=""
     
     if [[ -z "$last_index" ]]; then
         new_index=0
-        new_list="['$KEYBINDING_LIST_PATH/custom$new_index/']"
+        new_list="['$keybinding_list_path/custom$new_index/']"
     else
         new_index=$((last_index + 1))
         if [[ "$current_list" == "@as []" ]]; then
-            new_list="['$KEYBINDING_LIST_PATH/custom$new_index/']"
+            new_list="['$keybinding_list_path/custom$new_index/']"
         else
-            new_list=${current_list/]/", '$KEYBINDING_LIST_PATH/custom$new_index/']"}
+            new_list=${current_list/]/", '$keybinding_list_path/custom$new_index/']"}
         fi
     fi
 
-    new_path="$KEYBINDING_LIST_PATH/custom$new_index/"
+    local new_path="$keybinding_list_path/custom$new_index/"
 
     # Apply settings
-    gsettings set $BASE_GSETTINGS_PATH custom-keybindings "$new_list"
-    gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_path" name "$SHORTCUT_NAME"
-    gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_path" command "$CMD_NEOVIDE"
-    gsettings set "$BASE_GSETTINGS_PATH.custom-keybinding:$new_path" binding "$KEY_BINDING"
+    gsettings set $base_path custom-keybindings "$new_list"
+    gsettings set "$base_path.custom-keybinding:$new_path" name "$name"
+    gsettings set "$base_path.custom-keybinding:$new_path" command "$command"
+    gsettings set "$base_path.custom-keybinding:$new_path" binding "$binding"
 
-    echo "✅ Created shortcut: '$SHORTCUT_NAME' ($KEY_BINDING)"
-fi
+    echo "   Created: '$name' → $binding"
+}
+
+# Create shortcuts
+add_gnome_shortcut "DevBox Terminal" "$CMD_TERM" "<Super>r"
+add_gnome_shortcut "DevBox Neovide" "$CMD_NEOVIDE" "<Super>t"
 
 echo ""
-echo "=========================================="
-echo "✅ Setup complete!"
-echo "=========================================="
+echo "✅ DevBox Provisioned Successfully!"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📦 Container: $CONTAINER_NAME"
+echo "🔧 Neovim Service: Active (systemd)"
+echo "⌨️  Keyboard Shortcuts:"
+echo "   • Super+T → Launch Neovide GUI"
+echo "   • Super+R → Open terminal in container"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "Container:      $CONTAINER_NAME"
-echo "Home directory: $CONTAINER_HOME"
-echo "Nvim port:      $NVIM_PORT"
-echo ""
-echo "To launch Neovide:"
-echo "  - Use keyboard shortcut: $KEY_BINDING"
-echo ""
-echo "Note: Neovim server will start automatically on-demand"
-echo "      when you launch Neovide for the first time."
-echo ""
-echo "To enter the container, run:"
+echo "Manual commands:"
 echo "  distrobox enter $CONTAINER_NAME"
-echo ""
+echo "  neovide --server $NVIM_SOCKET"
