@@ -53,3 +53,5 @@ systemctl --user enable --now ssh-nvim-tunnel
 echo "✨ Script finished!"
 echo "👉 IMPORTANT: If this is a fresh setup, run this to log in first:"
 echo "podman run --rm -it -v $HOME/.cloudflared:/root/.cloudflared:Z docker.io/cloudflare/cloudflared:latest access login dev.dataverdict.com.br"
+echo "ssh developer@dev.dataverdict.com.br to enter"
+echo "nvim --server localhost:9999"
