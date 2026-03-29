@@ -17,7 +17,7 @@ TEMP_CONF=$(mktemp)
 cat <<EOF > "$TEMP_CONF"
 Host dev.dataverdict.com.br
     # Running via Podman to keep the host clean
-    ProxyCommand podman run --rm -i --user root -v /var/home/andreluis/.cloudflared:/root/.cloudflared:Z docker.io/cloudflare/cloudflared:latest access ssh --hostname %h
+    ProxyCommand podman run --rm -i --user root -v $HOME/.cloudflared:/root/.cloudflared:Z docker.io/cloudflare/cloudflared:latest access ssh --hostname %h
 EOF
 
 if grep -q "Host dev.dataverdict.com.br" ~/.ssh/config 2>/dev/null; then
