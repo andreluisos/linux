@@ -31,6 +31,8 @@ chmod 600 ~/.ssh/config
 
 # 4. Create the Systemd Tunnel Service
 echo "⚙️  Creating systemd tunnel service..."
+systemctl --user disable --now ssh-nvim-tunnel
+rm ~/.config/systemd/user/ssh-nvim-tunnel.service
 cat <<EOF > ~/.config/systemd/user/ssh-nvim-tunnel.service
 [Unit]
 Description=SSH Tunnel for Neovim (9999)
@@ -39,8 +41,7 @@ After=network-online.target
 [Service]
 # -N: No remote command
 # # -T: Disable pseudo-terminal (less overhead)
-# # -o TCPNoDelay=yes: The lag killer
-ExecStart=/usr/bin/ssh -N -T -o "TCPNoDelay=yes" -o "ExitOnForwardFailure=yes" -L 9999:localhost:9999 developer@dev.dataverdict.com.br
+ExecStart=/usr/bin/ssh -N -T -o "IPQoS=lowdelay" -o "ExitOnForwardFailure=yes" -L 9999:localhost:9999 developer@dev.dataverdict.com.br
 Restart=always
 RestartSec=10
 

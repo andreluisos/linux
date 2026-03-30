@@ -54,7 +54,8 @@ root_setup() {
   fi
 
   # 6. Enable linger
-  loginctl enable-linger "$USER"
+  echo "==> Enabling lingering for $USERNAME..."
+  loginctl enable-linger "$USERNAME"
 
   echo "==> Root setup complete."
 }
@@ -68,6 +69,10 @@ user_setup() {
   echo "PART 2: USER SETUP (Personal Configuration)"
   echo "=========================================="
   echo ""
+
+  # Manually set the environment for systemctl --user
+  export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+  export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
 
   git config --global --unset url."https://github.com/".insteadOf
 
@@ -95,10 +100,10 @@ user_setup() {
       rm -f /tmp/lazygit.tar.gz
   fi
 
-  # 4. Neovim (HTTPS)
+  # 4. Neovim
   echo "==> Setting up Neovim configuration..."
   rm -rf "$HOME/.config/nvim"
-  git clone git@github.com:andreluisos/nvim.git "$HOME/.config/nvim"
+  git clone https://github.com/andreluisos/nvim.git "$HOME/.config/nvim"
 
   # 5. Tmux (Handle potential 404)
   echo "==> Setting up Tmux configuration..."
@@ -178,6 +183,8 @@ SDKMAN_EOF
 
   # 14. Create the Cloudflared Gateway Quadlet
   # This single container handles both SSH (22) and Neovim (9999) traffic
+  systemctl --user stop cloudflared-gateway.service
+  rm ~/.config/containers/systemd/cloudflared-gateway.container
   cat <<EOF > ~/.config/containers/systemd/cloudflared-gateway.container
 [Unit]
 Description=Cloudflare Tunnel Gateway
@@ -197,6 +204,8 @@ WantedBy=default.target
 EOF
 
   # 15. Create the Neovim Server Service
+  systemctl --user disable --now nvim-server
+  rm ~/.config/systemd/user/nvim-server.service
   cat <<EOF > ~/.config/systemd/user/nvim-server.service
 [Unit]
 Description=Neovim Remote Server
@@ -218,7 +227,7 @@ EOF
   systemctl --user daemon-reload
 
   # Start the tunnel and the nvim server
-  systemctl --user enable --now cloudflared-gateway
+  systemctl --user start cloudflared-gateway.service
   systemctl --user enable --now nvim-server
 
   echo ""
