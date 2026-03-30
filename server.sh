@@ -213,10 +213,15 @@ After=network.target
 
 [Service]
 Type=simple
-# Starts in your home directory by default
 WorkingDirectory=%h
-ExecStart=/usr/bin/nvim --headless --listen 127.0.0.1:9999
+# -i forces it to be interactive, ensuring .zshrc (and SDKMAN) is loaded
+# -c executes the command
+ExecStart=/usr/bin/zsh -ic "nvim --headless --listen 127.0.0.1:9999"
 Restart=always
+
+# Optional: Add these to ensure LSPs can find the system bus
+Environment="XDG_RUNTIME_DIR=/run/user/%U"
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus"
 
 [Install]
 WantedBy=default.target
