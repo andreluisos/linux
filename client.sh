@@ -37,8 +37,10 @@ Description=SSH Tunnel for Neovim (9999)
 After=network-online.target
 
 [Service]
-# We use -o ExitOnForwardFailure to ensure the service fails if the port is taken
-ExecStart=/usr/bin/ssh -N -L 9999:localhost:9999 -o ExitOnForwardFailure=yes developer@dev.dataverdict.com.br
+# -N: No remote command
+# # -T: Disable pseudo-terminal (less overhead)
+# # -o TCPNoDelay=yes: The lag killer
+ExecStart=/usr/bin/ssh -N -T -o "TCPNoDelay=yes" -o "ExitOnForwardFailure=yes" -L 9999:localhost:9999 developer@dev.dataverdict.com.br
 Restart=always
 RestartSec=10
 
