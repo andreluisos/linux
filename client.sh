@@ -54,7 +54,7 @@ EOF
 
 # 5. Kickoff
 systemctl --user daemon-reload
-systemctl --user enable --now ssh-nvim-tunnel
+systemctl --user start nvim-bridge.service
 
 echo "✨ Script finished!"
 echo "👉 IMPORTANT: If this is a fresh setup, run this to log in first:"

@@ -250,8 +250,8 @@ EOF
 
   # Start the tunnel and the nvim server
   systemctl --user start cloudflared-gateway.service
+    systemctl --user enable --now cloudflared-nvim.service
   systemctl --user enable --now nvim-server
-  systemctl --user enable --now cloudflared-nvim.service
 
   echo ""
   echo "=========================================="
