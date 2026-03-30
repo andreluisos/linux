@@ -69,9 +69,7 @@ user_setup() {
   echo "=========================================="
   echo ""
 
-  # --- CRITICAL: FORCE HTTPS FOR GIT ---
-  # This bypasses the 'Permission denied (publickey)' error on new servers
-  git config --global url."https://github.com/".insteadOf "git@github.com:"
+  git config --global --unset url."https://github.com/".insteadOf
 
   # 1. Directories
   mkdir -p "$HOME/.local/bin" "$HOME/.config/tmux" "$HOME/.ssh" "$HOME/.local/share/fonts" "$HOME/.config/containers/systemd" "$HOME/.config/systemd/user"
@@ -100,7 +98,7 @@ user_setup() {
   # 4. Neovim (HTTPS)
   echo "==> Setting up Neovim configuration..."
   rm -rf "$HOME/.config/nvim"
-  git clone https://github.com/andreluisos/nvim.git "$HOME/.config/nvim"
+  git clone git@github.com:andreluisos/nvim.git "$HOME/.config/nvim"
 
   # 5. Tmux (Handle potential 404)
   echo "==> Setting up Tmux configuration..."
