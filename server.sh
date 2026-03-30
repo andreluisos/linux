@@ -193,7 +193,7 @@ After=network-online.target
 [Container]
 Image=docker.io/cloudflare/cloudflared:latest
 Secret=CLOUDFLARE_TUNNEL_TOKEN,type=env,target=TUNNEL_TOKEN
-Exec=tunnel --no-autoupdate run
+Exec=tunnel --no-autoupdate run --protocol quic
 Network=host
 
 [Service]
@@ -203,7 +203,24 @@ Restart=always
 WantedBy=default.target
 EOF
 
-  # 15. Create the Neovim Server Service
+  # 15. Create Cloudflare Neovim TCP Bridge
+  systemctl --user stop cloudflared-nvim.service
+  rm ~/.config/systemd/user/cloudflared-nvim.service
+  cat <<EOF > ~/.config/systemd/user/cloudflared-nvim.service
+[Unit]
+Description=Cloudflare Neovim TCP Bridge
+After=network-online.target
+
+[Service]
+# This turns your local 9999 into a direct pipe to the server
+ExecStart=/usr/bin/cloudflared access tcp --hostname nvim.dataverdict.com.br --listener localhost:9999
+Restart=always
+
+[Install]
+WantedBy=default.target
+EOF
+
+  # 16. Create the Neovim Server Service
   systemctl --user disable --now nvim-server
   rm ~/.config/systemd/user/nvim-server.service
   cat <<EOF > ~/.config/systemd/user/nvim-server.service
@@ -227,13 +244,14 @@ Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus"
 WantedBy=default.target
 EOF
 
-  # 16. Apply changes and fire it up
+  # 17. Apply changes and fire it up
   echo "🔄 Reloading systemd and starting services..."
   systemctl --user daemon-reload
 
   # Start the tunnel and the nvim server
   systemctl --user start cloudflared-gateway.service
   systemctl --user enable --now nvim-server
+  systemctl --user enable --now cloudflared-nvim.service
 
   echo ""
   echo "=========================================="

@@ -31,19 +31,22 @@ chmod 600 ~/.ssh/config
 
 # 4. Create the Systemd Tunnel Service
 echo "⚙️  Creating systemd tunnel service..."
-systemctl --user disable --now ssh-nvim-tunnel
-rm ~/.config/systemd/user/ssh-nvim-tunnel.service
-cat <<EOF > ~/.config/systemd/user/ssh-nvim-tunnel.service
+systemctl --user stop nvim-bridge.service
+rm ~/.config/containers/systemd/nvim-bridge.container
+cat <<EOF > ~/.config/containers/systemd/nvim-bridge.container
 [Unit]
-Description=SSH Tunnel for Neovim (9999)
+Description=Cloudflare Neovim Bridge (TCP)
 After=network-online.target
 
+[Container]
+Image=docker.io/cloudflare/cloudflared:latest
+# Mount your local cloudflared config to use your login token
+Volume=%h/.cloudflared:/root/.cloudflared:Z
+Exec=access tcp --hostname nvim.dataverdict.com.br --listener localhost:9999
+Network=host
+
 [Service]
-# -N: No remote command
-# # -T: Disable pseudo-terminal (less overhead)
-ExecStart=/usr/bin/ssh -N -T -o "IPQoS=lowdelay" -o "ExitOnForwardFailure=yes" -L 9999:localhost:9999 developer@dev.dataverdict.com.br
 Restart=always
-RestartSec=10
 
 [Install]
 WantedBy=default.target
