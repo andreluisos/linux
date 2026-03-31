@@ -203,7 +203,29 @@ Restart=always
 WantedBy=default.target
 EOF
 
-  # 15. Create Cloudflare Neovim TCP Bridge
+  # 15. Create a persistent SSH Agent Service
+  systemctl --user stop ssh-agent.service 2>/dev/null || true
+  cat <<EOF > ~/.config/systemd/user/ssh-agent.service
+[Unit]
+Description=SSH Key Agent
+After=network.target
+
+[Service]
+Type=simple
+# We force a fixed socket path so Neovim always knows where to look
+Environment="SSH_AUTH_SOCK=%t/ssh-agent.socket"
+ExecStartPre=/usr/bin/rm -f %t/ssh-agent.socket
+ExecStart=/usr/bin/ssh-agent -D -a %t/ssh-agent.socket
+Restart=always
+
+[Install]
+WantedBy=default.target
+EOF
+
+  systemctl --user daemon-reload
+  systemctl --user enable --now ssh-agent.service
+
+  # 16. Create Cloudflare Neovim TCP Bridge
   systemctl --user stop cloudflared-nvim.service
   rm ~/.config/systemd/user/cloudflared-nvim.service
   cat <<EOF > ~/.config/systemd/user/cloudflared-nvim.service
@@ -220,37 +242,44 @@ Restart=always
 WantedBy=default.target
 EOF
 
-  # 16. Create the Neovim Server Service
+  # 17. Create the Neovim Server Service
   systemctl --user disable --now nvim-server
   rm ~/.config/systemd/user/nvim-server.service
   cat <<EOF > ~/.config/systemd/user/nvim-server.service
 [Unit]
 Description=Neovim Remote Server
-After=network.target
+After=ssh-agent.service
 
 [Service]
 Type=simple
 WorkingDirectory=%h
-# -i forces it to be interactive, ensuring .zshrc (and SDKMAN) is loaded
-# -c executes the command
-ExecStart=/usr/bin/zsh -ic "nvim --headless --listen 127.0.0.1:9999"
-Restart=always
-
-# Optional: Add these to ensure LSPs can find the system bus
+# Inject the fixed socket path into Neovim's environment
+Environment="SSH_AUTH_SOCK=%t/ssh-agent.socket"
 Environment="XDG_RUNTIME_DIR=/run/user/%U"
 Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus"
+ExecStart=/usr/bin/zsh -ic "nvim --headless --listen 127.0.0.1:9999"
+Restart=always
 
 [Install]
 WantedBy=default.target
 EOF
 
-  # 17. Apply changes and fire it up
+  # 18. Automate SSH key loading
+  cat <<EOF >> ~/.ssh/config
+Host *
+    # Automatically load keys into the agent on first use
+    AddKeysToAgent yes
+    # Use the persistent systemd socket
+    IdentityAgent ${XDG_RUNTIME_DIR}/ssh-agent.socket
+EOF
+
+  # 19. Apply changes and fire it up
   echo "Reloading systemd and starting services..."
   systemctl --user daemon-reload
 
   # Start the tunnel and the nvim server
   systemctl --user start cloudflared-gateway.service
-    systemctl --user enable --now cloudflared-nvim.service
+  systemctl --user enable --now cloudflared-nvim.service
   systemctl --user enable --now nvim-server
 
   echo ""
@@ -273,4 +302,4 @@ else
   exit 1
 fi
 
-echo "All done! 🎉"
+echo "All done!"
