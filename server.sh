@@ -1,4 +1,4 @@
-  #!/bin/bash
+#!/bin/bash
 # This script handles privilege escalation, system config, and user environment.
 set -e
 
