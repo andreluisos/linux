@@ -173,12 +173,12 @@ SDKMAN_EOF
 
   # 13. Handle Cloudflare Tunnel Secret
   if ! podman secret inspect CLOUDFLARE_TUNNEL_TOKEN >/dev/null 2>&1; then
-      read -sp "Enter your Cloudflare Tunnel Token: " CF_TOKEN
-      echo
-      echo "$CF_TOKEN" | podman secret create CLOUDFLARE_TUNNEL_TOKEN -
-      echo "Secret 'CLOUDFLARE_TUNNEL_TOKEN' created."
-  else
-      echo "Secret 'CLOUDFLARE_TUNNEL_TOKEN' already exists. Skipping."
+      if [ -n "$CF_TOKEN" ]; then
+          echo "$CF_TOKEN" | podman secret create CLOUDFLARE_TUNNEL_TOKEN -
+          echo "Secret 'CLOUDFLARE_TUNNEL_TOKEN' created."
+      else
+          echo "Error: Cloudflare token was not provided. Skipping secret creation."
+      fi
   fi
 
   # 14. Create the Cloudflared Gateway Quadlet
@@ -296,8 +296,9 @@ if [ "$EUID" -eq 0 ]; then
   root_setup
   echo ""
   echo "Switching to user: $USERNAME"
-  export -f user_setup
-  su - "$USERNAME" -c "$(declare -f user_setup); user_setup"
+  
+  # Use sudo to run the function as the user while keeping the environment
+  sudo -E -u "$USERNAME" bash -c "$(declare -f user_setup); user_setup"
 else
   echo "Please run this script with: sudo bash $0"
   exit 1
