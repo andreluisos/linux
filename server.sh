@@ -212,9 +212,10 @@ After=network.target
 
 [Service]
 Type=simple
-# We force a fixed socket path so Neovim always knows where to look
+# %t is a systemd shortcut for /run/user/1000
 Environment="SSH_AUTH_SOCK=%t/ssh-agent.socket"
 ExecStartPre=/usr/bin/rm -f %t/ssh-agent.socket
+# -D prevents it from forking, -a sets the fixed path
 ExecStart=/usr/bin/ssh-agent -D -a %t/ssh-agent.socket
 Restart=always
 
@@ -254,7 +255,7 @@ After=ssh-agent.service
 Type=simple
 WorkingDirectory=%h
 # Inject the fixed socket path into Neovim's environment
-Environment="SSH_AUTH_SOCK=%t/ssh-agent.socket"
+Environment="SSH_AUTH_SOCK=/run/user/1000/ssh-agent.socket"
 Environment="XDG_RUNTIME_DIR=/run/user/%U"
 Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus"
 ExecStart=/usr/bin/zsh -ic "nvim --headless --listen 127.0.0.1:9999"
@@ -270,7 +271,7 @@ Host *
     # Automatically load keys into the agent on first use
     AddKeysToAgent yes
     # Use the persistent systemd socket
-    IdentityAgent ${XDG_RUNTIME_DIR}/ssh-agent.socket
+    IdentityAgent /run/user/1000/ssh-agent.socket
 EOF
 
   # 19. Apply changes and fire it up
