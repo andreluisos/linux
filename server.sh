@@ -1,5 +1,4 @@
   #!/bin/bash
-# test.sh - Complete Development Server Setup (Bare Metal / DevBox)
 # This script handles privilege escalation, system config, and user environment.
 set -e
 
