@@ -44,10 +44,15 @@ mem_temp_swap_info=$(awk -v temp_file="$hwmon_file" '
 
 # --- Battery ---
 battery_info=""
-if [ -f /sys/class/power_supply/BAT0/capacity ]; then
+# Define paths for readability
+BAT_PATH="/sys/class/power_supply/BAT0/capacity"
+AC_PATH="/sys/class/power_supply/AC/online"
+
+# Check if battery file exists AND if AC online value equals 1
+if [ -f "$BAT_PATH" ] && [ -f "$AC_PATH" ] && [ "$(cat "$AC_PATH")" -eq 0 ]; then
     charge=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null)
     if [ -n "$charge" ]; then
-        battery_info=" | 󰂎 $charge%"
+        battery_info="| 󰂎 $charge%"
     fi
 fi
 
