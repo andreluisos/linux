@@ -105,8 +105,12 @@ command = "jdtls"
 args = ["--jvm-arg=-javaagent:$HOME/.local/share/jdtls/lombok.jar"]
 EOF
 
-echo "=== 9. Configuring Tmux ==="
+echo "=== 9. Configuring Tmux & Status Script ==="
 curl -L -o "$HOME/.tmux.conf" "https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux.conf"
+
+# Download status.sh into the local bin directory and make it executable
+curl -L -o "$HOME/.local/bin/status.sh" "https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/status.sh"
+chmod +x "$HOME/.local/bin/status.sh"
 
 echo "=== Setup Complete! ==="
 echo "Please restart your terminal or run: source ~/.zshrc (and source ~/.cargo/env)"
