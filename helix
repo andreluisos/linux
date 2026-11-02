@@ -2,7 +2,7 @@
 set -e
 
 echo "=== 1. Installing System Dependencies ==="
-sudo dnf install -y nodejs lldb zip unzip tar curl wget git wl-clipboard helix
+sudo dnf install -y nodejs lldb zip unzip tar curl wget git wl-clipboard tmux helix
 
 echo "=== 2. Installing TypeScript Language Server ==="
 sudo npm install -g typescript typescript-language-server
@@ -104,6 +104,9 @@ formatter = { command = "java", args = ["-jar", "$HOME/.local/share/jdtls/google
 command = "jdtls"
 args = ["--jvm-arg=-javaagent:$HOME/.local/share/jdtls/lombok.jar"]
 EOF
+
+echo "=== 9. Configuring Tmux ==="
+curl -L -o "$HOME/.tmux.conf" "https://raw.githubusercontent.com/andreluisos/linux/refs/heads/main/tmux.conf"
 
 echo "=== Setup Complete! ==="
 echo "Please restart your terminal or run: source ~/.zshrc (and source ~/.cargo/env)"
