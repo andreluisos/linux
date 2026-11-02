@@ -86,6 +86,9 @@ y = "yank_main_selection_to_clipboard"
 
 [keys.select]
 y = "yank_main_selection_to_clipboard"
+
+[keys.insert]
+"C-c" = "normal_mode"
 EOF
 
 # Write the exact languages.toml (Unquoted EOF allows $HOME to evaluate dynamically)
