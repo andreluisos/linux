@@ -1,0 +1,109 @@
+#!/bin/bash
+set -e
+
+echo "=== 1. Installing System Dependencies ==="
+sudo dnf install -y nodejs lldb zip unzip tar curl wget git wl-clipboard helix
+
+echo "=== 2. Installing TypeScript Language Server ==="
+sudo npm install -g typescript typescript-language-server
+
+echo "=== 3. Installing Rust Toolchain ==="
+# -y accepts the default installation automatically
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+
+echo "=== 4. Installing SDKMAN! ==="
+export SDKMAN_DIR="$HOME/.sdkman"
+curl -s "https://get.sdkman.io" | bash
+
+# Force SDKMAN to automatically answer 'yes' to prompts (e.g., making GraalVM default)
+sed -i 's/sdkman_auto_answer=false/sdkman_auto_answer=true/g' "$SDKMAN_DIR/etc/config"
+
+source "$SDKMAN_DIR/bin/sdkman-init.sh"
+
+echo "=== 5. Installing GraalVM, Gradle, and Maven ==="
+# Fetch the identifier for the latest Java 21 GraalVM Community Edition
+GRAAL_VERSION=$(sdk list java | grep -oE "21\.[0-9]+\.[0-9]+-graalce" | head -n 1)
+if [ -z "$GRAAL_VERSION" ]; then
+    GRAAL_VERSION="21.0.2-graalce" # Fallback if grep fails
+fi
+
+sdk install java "$GRAAL_VERSION"
+sdk install gradle
+sdk install maven
+
+echo "=== 6. Setting up JDTLS, Lombok, and Google Java Format ==="
+mkdir -p ~/.local/share/jdtls ~/.local/bin
+cd ~/.local/share/jdtls
+
+# Download JDTLS
+curl -L -o jdtls.tar.gz https://download.eclipse.org/jdtls/snapshots/jdt-language-server-latest.tar.gz
+tar -xzf jdtls.tar.gz
+rm jdtls.tar.gz
+
+# Download Lombok
+curl -L -o lombok.jar https://projectlombok.org/downloads/lombok.jar
+
+# Download Google Java Formatter
+curl -L -o google-java-format.jar https://github.com/google/google-java-format/releases/download/v1.24.0/google-java-format-1.24.0-all-deps.jar
+
+# Symlink JDTLS to PATH
+ln -sf ~/.local/share/jdtls/bin/jdtls ~/.local/bin/jdtls
+
+echo "=== 7. Configuring Zsh Environment ==="
+# Ensure alias and prompt aren't duplicated if run multiple times
+if ! grep -q "alias hx='toolbox run hx'" ~/.zshrc; then
+cat << 'EOF' >> ~/.zshrc
+
+# Launch Helix inside toolbox
+alias hx='toolbox run hx'
+
+# Toolbox-specific terminal adjustments
+if [ -f /run/.toolboxenv ] || [ -f /run/.containerenv ]; then
+    # Clear the sequence that tells Ptyxis you are in a container
+    printf "\033]777;container;pop;;\033\\"
+    
+    # Prepends a cyan hexagon icon.
+    PROMPT="%F{cyan}⬢%f $PROMPT"
+fi
+EOF
+fi
+
+echo "=== 8. Configuring Helix ==="
+mkdir -p ~/.config/helix
+
+# Write the exact config.toml (Quoted 'EOF' protects the %sh{} variables from expanding early)
+cat << 'EOF' > ~/.config/helix/config.toml
+theme = "adwaita-dark"
+
+[editor.soft-wrap]
+enable = true
+
+[keys.normal]
+# Press Space + S to show Time, Memory, and Swap. % is escaped as %% for Helix.
+"space" = { S = ":echo %sh{ echo \"$(date '+%%Y-%%m-%%d %%H:%%M') | Mem: $(free -h | awk '/^Mem/ {print $3\"/\"$2}') | Swap: $(free -h | awk '/^Swap/ {print $3\"/\"$2}')\" }" }
+y = "yank_main_selection_to_clipboard"
+
+[keys.select]
+y = "yank_main_selection_to_clipboard"
+EOF
+
+# Write the exact languages.toml (Unquoted EOF allows $HOME to evaluate dynamically)
+cat << EOF > ~/.config/helix/languages.toml
+[[language]]
+name = "rust"
+auto-format = true
+formatter = { command = "rustfmt", args = ["--edition", "2024"] }
+
+[[language]]
+name = "java"
+language-servers = ["jdtls"]
+formatter = { command = "java", args = ["-jar", "$HOME/.local/share/jdtls/google-java-format.jar", "-a", "-"] }
+
+[language-server.jdtls]
+command = "jdtls"
+args = ["--jvm-arg=-javaagent:$HOME/.local/share/jdtls/lombok.jar"]
+EOF
+
+echo "=== Setup Complete! ==="
+echo "Please restart your terminal or run: source ~/.zshrc (and source ~/.cargo/env)"
